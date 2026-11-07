@@ -221,7 +221,7 @@ impl Default for Settings {
             // A phone starts with VSync off at its panel's 120 Hz: frames past
             // that are never shown and only heat it.
             max_fps: 120,
-            vsync: !cfg!(target_os = "android"),
+            vsync: !cfg!(any(target_os = "android", target_os = "ios")),
             fullscreen: false,
             smooth_lighting: true,
             clouds: "true".into(),
@@ -361,9 +361,9 @@ impl Settings {
             },
         };
         // Only the first start's defaults: what the player sets afterwards stays.
-        #[cfg(target_os = "android")]
+        #[cfg(any(target_os = "android", target_os = "ios"))]
         let settings = if first_run { settings.fit_phone() } else { settings };
-        #[cfg(not(target_os = "android"))]
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         let _ = first_run;
         settings.describe_for_crashes();
         // Options.load: the backend asked for at startup, what a restart is measured from.
@@ -375,8 +375,10 @@ impl Settings {
     /// Phones under 7 GiB (Redmi Note 9 Pro is 6 GB) stall and get killed on
     /// Java servers at the desktop default of 12 chunks: the client cannot
     /// answer keep-alives, so the tab list shows thousands of ms, then the
-    /// process dies. The mined items are already on the server.
-    #[cfg(target_os = "android")]
+    /// process dies. The mined items are already on the server. iOS devices
+    /// with 4 GB (iPhone SE, iPhone 12 mini) have the same problem, and worse:
+    /// the system kills the app when it holds too much memory.
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     fn fit_phone(mut self) -> Self {
         let kb = mem_total_kb();
         if kb == 0 || kb >= 7 * 1024 * 1024 {
@@ -401,6 +403,12 @@ impl Settings {
         }
         self
     }
+}
+
+#[cfg(target_os = "ios")]
+fn mem_total_kb() -> u64 {
+    // In horizon-threads: this crate forbids unsafe code.
+    horizon_threads::physical_memory_kb()
 }
 
 #[cfg(target_os = "android")]

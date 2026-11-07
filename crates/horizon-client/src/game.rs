@@ -514,7 +514,8 @@ impl Options {
             resources: if let Some(path) =
                 std::env::var_os("HORIZON_RESOURCES").filter(|p| !p.is_empty())
             {
-                // Android: set by android_main to the app's storage (ANDROID.md).
+                // Android: set by android_main to the app's storage (ANDROID.md); iOS:
+                // set by ios_main to Documents/Horizon (IOS.md).
                 path.into()
             } else if sibling.join("horizon-resources.json").exists() {
                 sibling
@@ -1998,7 +1999,7 @@ struct Game<'a> {
     last_input: Instant,
     /// Controllers (Horizon's own).
     pad: pad::Pads,
-    /// Fingers on a touch screen (Android).
+    /// Fingers on a touch screen (Android, iOS).
     touch: touch::Touches,
     frames: u64,
     /// The glint clock and options, read once at the start of each frame
@@ -6953,8 +6954,8 @@ impl Game<'_> {
                 .set_cursor_grab(CursorGrabMode::Locked)
                 .or_else(|_| window.set_cursor_grab(CursorGrabMode::Confined))
                 .is_ok();
-            // Android has no pointer to grab: touch turns the view (game/touch.rs).
-            #[cfg(target_os = "android")]
+            // Android and iOS have no pointer to grab: touch turns the view (game/touch.rs).
+            #[cfg(any(target_os = "android", target_os = "ios"))]
             {
                 self.captured = true;
             }
@@ -10359,7 +10360,7 @@ impl Game<'_> {
     /// What the title screen asked for, from a click or Enter.
     fn title_action(&mut self, event_loop: &ActiveEventLoop, action: Action) -> Result<()> {
         match action {
-            Action::Quit => event_loop.exit(),
+            Action::Quit => quit(event_loop),
             Action::Options => self.open_options(true),
             Action::Accessibility => {
                 self.open_options_at(true, horizon_client::options_ui::Page::Accessibility)
@@ -14450,10 +14451,10 @@ impl Game<'_> {
 impl ApplicationHandler for Game<'_> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
-            // Android: the native window is back after the app was in the background.
-            #[cfg(target_os = "android")]
+            // Android and iOS: the native window is back after the app was in the background.
+            #[cfg(any(target_os = "android", target_os = "ios"))]
             {
-                ANDROID_BACKGROUND.store(false, Ordering::Relaxed);
+                MOBILE_BACKGROUND.store(false, Ordering::Relaxed);
                 self.audio.set_output_paused(false);
                 // The time away is not simulated in one go when the loop wakes up.
                 self.previous = Instant::now();
@@ -14510,14 +14511,14 @@ impl ApplicationHandler for Game<'_> {
         self.previous = Instant::now();
     }
     fn suspended(&mut self, event_loop: &ActiveEventLoop) {
-        // Android: the native window goes away in the background. Stop polling
+        // Android and iOS: the native window goes away in the background. Stop polling
         // so the process sleeps instead of running at full speed behind Home.
         // Home or another app: the game freezes. A world opens the pause menu (single player
         // stops its server ticking), the sound output stops and the loop sleeps until the
         // window is back.
-        #[cfg(target_os = "android")]
+        #[cfg(any(target_os = "android", target_os = "ios"))]
         {
-            ANDROID_BACKGROUND.store(true, Ordering::Relaxed);
+            MOBILE_BACKGROUND.store(true, Ordering::Relaxed);
             event_loop.set_control_flow(ControlFlow::Wait);
             if self.player.is_some()
                 && self.title.is_none()
@@ -14530,6 +14531,7 @@ impl ApplicationHandler for Game<'_> {
                 server.set_paused(true);
             }
             self.touch_release_all();
+            #[cfg(target_os = "android")]
             android_input::reset();
             self.touch.pointer_captured = None;
             self.audio.set_output_paused(true);
@@ -15695,8 +15697,8 @@ impl ApplicationHandler for Game<'_> {
             return;
         }
         // In the background nothing is simulated or drawn: the loop waits for `resumed`.
-        #[cfg(target_os = "android")]
-        if ANDROID_BACKGROUND.load(Ordering::Relaxed) {
+        #[cfg(any(target_os = "android", target_os = "ios"))]
+        if MOBILE_BACKGROUND.load(Ordering::Relaxed) {
             event_loop.set_control_flow(ControlFlow::Wait);
             return;
         }
@@ -15710,8 +15712,8 @@ impl ApplicationHandler for Game<'_> {
                 w.request_redraw();
             }
         }
-        #[cfg(target_os = "android")]
-        if ANDROID_BACKGROUND.load(Ordering::Relaxed) {
+        #[cfg(any(target_os = "android", target_os = "ios"))]
+        if MOBILE_BACKGROUND.load(Ordering::Relaxed) {
             event_loop.set_control_flow(ControlFlow::Wait);
             return;
         }
@@ -17478,15 +17480,29 @@ fn new_event_loop() -> std::result::Result<EventLoop<()>, winit::error::EventLoo
 pub static ANDROID_APP: std::sync::OnceLock<winit::platform::android::activity::AndroidApp> =
     std::sync::OnceLock::new();
 
-/// The activity is stopped (Home or another app). The loop waits instead of spinning.
-#[cfg(target_os = "android")]
-static ANDROID_BACKGROUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// The app was stopped (Android: Home or another app; iOS: the app went to the
+/// background). The loop waits instead of spinning.
+#[cfg(any(target_os = "android", target_os = "ios"))]
+static MOBILE_BACKGROUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Quit Game ended the native loop. Ask the activity to die so the next launch
 /// is a new process, not a resumed black window.
 #[cfg(target_os = "android")]
 pub fn finish_activity() {
     android_ime::quit();
+}
+
+/// Quit Game: leave the native loop and, on iOS, the process. winit's iOS
+/// backend drops `ControlFlow::Exit` (an iOS app is expected to keep running),
+/// so without this the next launch resumes a dead window, black and then
+/// minimized. The log is flushed first: `exit` runs no destructors.
+fn quit(event_loop: &ActiveEventLoop) {
+    event_loop.exit();
+    #[cfg(target_os = "ios")]
+    {
+        horizon_client::logging::flush();
+        std::process::exit(0);
+    }
 }
 
 /// The window system ended the event loop with a failure (on Linux, a compositor dropping the
@@ -17544,7 +17560,7 @@ struct Loading {
 impl Loading {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
-            // Android: the native window is back after the app was in the background.
+            // Android and iOS: the native window is back after the app was in the background.
             if let Some(renderer) = &mut self.renderer
                 && let Err(e) = renderer.regain_surface()
             {
@@ -17603,7 +17619,7 @@ impl Loading {
         self.window = Some(window);
     }
     fn suspended(&mut self, _: &ActiveEventLoop) {
-        // Android: the native window goes away in the background.
+        // Android and iOS: the native window goes away in the background.
         if let Some(renderer) = &mut self.renderer {
             renderer.lose_surface();
         }
@@ -17614,7 +17630,7 @@ impl Loading {
         }
         follow_keymap(&mut event);
         // The loading screen has no Game yet, so it does not go through
-        // touch.rs. Android sends fingers as Touch, not mouse: without this
+        // touch.rs. Android and iOS send fingers as Touch, not mouse: without this
         // the title is on screen and dead until the world renderer swap.
         if let WindowEvent::Touch(touch) = event {
             let device_id = touch.device_id;
@@ -17987,6 +18003,10 @@ fn run_loading(
     Ok(())
 }
 
+// main.rs (the desktop bin) turns these into an exit code; the iOS entry point
+// reports through the crash report instead, so its copy of `game` has no use
+// for them.
+#[cfg_attr(target_os = "ios", allow(unused_imports))]
 pub use launch_api::{UsageError, exit_code};
 
 pub fn run() -> Result<()> {

@@ -85,7 +85,7 @@ impl Missing {
         let mut batch = HudBatch::new(self.size());
         match self.with_ui(&mut batch, |ui| self.screen.click(ui)) {
             Some(Action::Download) => packs::open_uri(DOWNLOAD_URL),
-            Some(Action::Quit) => event_loop.exit(),
+            Some(Action::Quit) => super::quit(event_loop),
             None => {}
         }
     }

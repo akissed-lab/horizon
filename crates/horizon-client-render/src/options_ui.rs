@@ -2001,7 +2001,7 @@ impl OptionsUi {
                         let mut label = Text::literal(format!("{}: ", installed.title))
                             .append(on_off(s.mods.is_on(i)));
                         if installed.problem.as_deref() == Some(crate::mod_list::NOT_BUILT) {
-                            label = label.append(tr(if cfg!(target_os = "android") {
+                            label = label.append(tr(if cfg!(any(target_os = "android", target_os = "ios")) {
                                 "horizon.mods.not_built_phone"
                             } else {
                                 "horizon.mods.not_built"
@@ -2721,7 +2721,7 @@ impl OptionsUi {
                         .problem
                         .as_deref()
                         .unwrap_or(&installed.description);
-                    let text = if cfg!(target_os = "android")
+                    let text = if cfg!(any(target_os = "android", target_os = "ios"))
                         && installed.problem.as_deref() == Some(crate::mod_list::NOT_BUILT)
                     {
                         Text::literal(format!("{}\n", installed.title)).append(tr("horizon.mods.not_built_phone.tip"))

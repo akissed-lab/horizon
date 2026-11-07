@@ -305,6 +305,9 @@ The port requires **arm64**, **Android 8.0+ (API 26)**, and a GPU with **Vulkan*
 
 APK build instructions are in [ANDROID.md](ANDROID.md).
 
+The experimental iOS sideload build (arm64, GitHub Actions + ESign/Feather, no in-app downloader) is in
+[IOS.md](IOS.md).
+
 ### Credits
 
 The game itself is the work of the [Horizon](https://github.com/horizon-rust/horizon) authors ([playhorizon.dev](https://playhorizon.dev)).

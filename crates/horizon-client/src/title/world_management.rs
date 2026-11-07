@@ -92,24 +92,37 @@ pub fn backups_path(saves: &Path) -> PathBuf {
 
 pub(super) fn open_folder(path: &Path) -> crate::Result<()> {
     fs::create_dir_all(path)?;
-    let path = fs::canonicalize(path)?;
-    let program = if cfg!(target_os = "windows") {
-        "explorer"
-    } else if cfg!(target_os = "macos") {
-        "open"
-    } else {
-        "xdg-open"
-    };
-    // Reap the desktop opener without blocking the UI thread.
-    let mut child = std::process::Command::new(program)
-        .arg(path)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()?;
-    std::thread::spawn(move || {
-        let _ = child.wait();
-    });
-    Ok(())
+    // iOS has no file manager to hand a folder to. The game's folders are in
+    // the Files app ("On My iPhone/Horizon", IOS.md), so say where.
+    #[cfg(target_os = "ios")]
+    {
+        log::info!(
+            "Horizon: {} is in the Files app (On My iPhone/Horizon)",
+            path.display()
+        );
+        return Ok(());
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        let path = fs::canonicalize(path)?;
+        let program = if cfg!(target_os = "windows") {
+            "explorer"
+        } else if cfg!(target_os = "macos") {
+            "open"
+        } else {
+            "xdg-open"
+        };
+        // Reap the desktop opener without blocking the UI thread.
+        let mut child = std::process::Command::new(program)
+            .arg(path)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()?;
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
+        Ok(())
+    }
 }
 
 pub fn backup(saves: &Path, folder: &str) -> crate::Result<u64> {

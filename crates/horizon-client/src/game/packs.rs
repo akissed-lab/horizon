@@ -40,7 +40,14 @@ pub fn open_folder(dir: &Path) {
         super::android_ime::open_game_folder(dir);
         return;
     }
-    #[cfg(not(target_os = "android"))]
+    // iOS has no other app to hand a folder to: `open` does not exist, and the
+    // folder is in the Files app anyway ("On My iPhone/Horizon", IOS.md).
+    #[cfg(target_os = "ios")]
+    {
+        log::info!("Horizon: {} is in the Files app (On My iPhone/Horizon)", dir.display());
+        return;
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let program = if cfg!(target_os = "windows") {
             "explorer"

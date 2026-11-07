@@ -34,7 +34,7 @@ horizon-friends = { path = "../horizon-friends" }
 horizon-mods = { path = "../horizon-mods", default-features = false, features = ["index"] }
 # Prebuilt native mods (`.hnmod` libraries, docs/android-mods.md): where the game opens them.
 horizon-native-abi = { path = "../horizon-native-abi", features = ["host"] }
-wgpu = { version = "30.0.1", default-features = false, features = ["std", "parking_lot", "vulkan", "metal", "wgsl", "naga-ir"] }
+wgpu = { version = "30.0.1", default-features = false, features = ["std", "parking_lot", "metal", "wgsl", "naga-ir"] }
 winit = "0.30.13"
 pollster = "0.4"
 bytemuck = { version = "1.24", features = ["derive"] }
@@ -81,10 +81,11 @@ open = { version = "5.4.5", features = ["shellexecute-on-windows"] }
 # on the PATH.
 wgpu = { version = "30.0.1", default-features = false, features = ["dx12"] }
 
-[target.'cfg(not(target_os = "macos"))'.dependencies]
+[target.'cfg(not(any(target_os = "macos", target_os = "ios")))'.dependencies]
 # OpenGL (WGL on Windows, EGL on Linux), the last fallback, for GPUs with no Vulkan or
-# DirectX 12 driver (`graphicsApi`, graphics.rs).
-wgpu = { version = "30.0.1", default-features = false, features = ["gles"] }
+# DirectX 12 driver, and Vulkan (Linux, Android), the first choice where there is one
+# (`graphicsApi`, graphics.rs).
+wgpu = { version = "30.0.1", default-features = false, features = ["gles", "vulkan"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 # Android: the NativeActivity glue (no Java), see ANDROID.md.

@@ -252,6 +252,28 @@ fn release() {
 #[cfg(not(any(all(target_os = "linux", target_env = "gnu"), target_vendor = "apple")))]
 fn release() {}
 
+/// The device's physical RAM in KiB (`NSProcessInfo.physicalMemory`), which the
+/// game's first-run defaults scale to (settings.rs `fit_phone`); 0 when the
+/// query fails. The sandbox allows the read.
+#[cfg(target_vendor = "apple")]
+pub fn physical_memory_kb() -> u64 {
+    let mut bytes: u64 = 0;
+    let mut len = std::mem::size_of::<u64>();
+    let name = c"hw.memsize";
+    // SAFETY: a NUL-terminated name, an out pointer of the length given, and a
+    // null "new value" for a read.
+    let read = unsafe {
+        libc::sysctlbyname(
+            name.as_ptr(),
+            (&raw mut bytes).cast(),
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    if read == 0 { bytes / 1024 } else { 0 }
+}
+
 /// The REPARSE_DATA_BUFFER of a mount point naming `name` (UTF-16, `\??\` prefixed). The length
 /// fields are 16 bits: a name too long for them is an error, so the caller copies instead.
 #[cfg(windows)]

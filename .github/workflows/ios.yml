@@ -1,0 +1,65 @@
+name: ios
+# Builds the sideloadable Horizon.ipa on a GitHub macOS runner: a Rust static
+# library (crates/horizon-ios) linked against packaging/ios/main.m, no Xcode
+# project. The IPA is unsigned apart from an ad-hoc signature; ESign, Feather or
+# Sideloadly re-sign it with the user's certificate. See IOS.md.
+#
+# Runs on every push to the port's branch and on demand; a v* tag also publishes
+# the IPA as a release asset, which is the easiest thing to download on the phone.
+on:
+  push:
+    # The fork's port branch (ios), plus upstream's names for a renamed copy.
+    branches: [ios, android-port, main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Cargo profile (release or fast)'
+        type: choice
+        default: release
+        options: [release, fast]
+permissions:
+  contents: write
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ipa:
+    # macos-14 is retired (its label now resolves to an arm64 configuration
+    # that some accounts cannot use); macos-15 has Xcode's iOS SDK. Either
+    # architecture cross-builds aarch64-apple-ios fine.
+    runs-on: macos-15
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      # The workspace is large; reuse target/ between runs.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ios-ipa
+      - name: Build Horizon.ipa
+        env:
+          PROFILE: ${{ inputs.profile || 'release' }}
+          # Cargo.lock is committed; a build that would edit it fails here.
+          CARGO_FLAGS: --locked
+        run: ./packaging/ios/build_ipa.sh
+      - name: Check the bundle
+        run: |
+          plutil -lint target/ios/Payload/Horizon.app/Info.plist
+          codesign --verify --strict --verbose=2 target/ios/Payload/Horizon.app
+          ls -lh target/ios/Horizon.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Horizon-ios-${{ github.sha }}
+          path: target/ios/Horizon.ipa
+          if-no-files-found: error
+          retention-days: 30
+      # Tags are what the phone downloads: github.com/<owner>/<repo>/releases/download/<tag>/Horizon.ipa
+      - name: Publish the IPA on a tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/ios/Horizon.ipa

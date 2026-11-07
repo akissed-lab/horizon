@@ -120,16 +120,16 @@ impl Game<'_> {
         }
         let threshold = self.settings.controller.trigger_threshold;
         let edges = self.pad.edges.update(&state, threshold);
-        // On Android the touch controls drive the virtual pad: only the hardware one counts.
+        // On Android and iOS the touch controls drive the virtual pad: only the hardware one counts.
         let hardware_active = hardware.active(&self.settings.controller);
         if state.active(&self.settings.controller) {
             self.last_input = Instant::now();
             // Touch is not a controller: no pad cursor, glyphs or pad keyboard for it.
-            if !touch_only && (hardware_active || !cfg!(target_os = "android")) {
+            if !touch_only && (hardware_active || !cfg!(any(target_os = "android", target_os = "ios"))) {
                 self.pad.in_use = true;
             }
         }
-        if hardware_active && cfg!(target_os = "android") {
+        if hardware_active && cfg!(any(target_os = "android", target_os = "ios")) {
             self.touch.hardware = true;
         }
         self.pad.state = state;

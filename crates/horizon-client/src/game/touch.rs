@@ -1,4 +1,4 @@
-//! Touch controls (Android; ANDROID.md), laid out like Bedrock Edition's.
+//! Touch controls (Android and iOS; ANDROID.md, IOS.md), laid out like Bedrock Edition's.
 //!
 //! In menus a finger is the mouse (down = left click, moving drags). In the
 //! world the controls are drawn over the HUD (`draw_touch_controls`): a
@@ -18,8 +18,10 @@ use super::Game;
 use horizon_client::{
     gamepad::Button,
     hud::{HudAtlas, HudBatch, rgba},
-    osk,
 };
+// The soft keyboard's output types: Android's IME only (touch_ime below).
+#[cfg(target_os = "android")]
+use horizon_client::osk;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, time::Instant};
 use winit::{
@@ -321,7 +323,7 @@ impl Default for Touches {
             trigger_release: [0; 2],
             sneaking: false,
             sprinting: false,
-            layout: if cfg!(target_os = "android") { TouchLayout::load() } else { TouchLayout::default() },
+            layout: if cfg!(any(target_os = "android", target_os = "ios")) { TouchLayout::load() } else { TouchLayout::default() },
             editing: false,
             selected: None,
             dirty: false,
@@ -536,13 +538,13 @@ impl Game<'_> {
     }
 
     fn touch_controls_shown(&self) -> bool {
-        cfg!(target_os = "android") && self.player.is_some() && !self.pad_in_menu() && !self.touch.hardware
+        cfg!(any(target_os = "android", target_os = "ios")) && self.player.is_some() && !self.pad_in_menu() && !self.touch.hardware
     }
 
     /// Over a screen in the world (inventory, containers, pause, chat...):
     /// a close button, as Escape.
     fn touch_close_shown(&self) -> bool {
-        cfg!(target_os = "android")
+        cfg!(any(target_os = "android", target_os = "ios"))
             && self.player.is_some()
             && self.title.is_none()
             && self.pad_in_menu()
