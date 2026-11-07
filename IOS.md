@@ -6,10 +6,10 @@ project: `crates/horizon-ios` compiles horizon-client's game (`src/game.rs` + `s
 `main.rs`, and `packaging/ios/build_ipa.sh` links it against `packaging/ios/main.m`. Rendering is
 wgpu on Metal, sound is cpal on CoreAudio, and input is winit's UIKit backend.
 
-**Status: the Rust side compiles for `aarch64-apple-ios` and the workflow builds and signs the
-bundle; it has not been run on a phone yet.** Treat it as an experiment. Logs are in
-`Documents/Horizon/logs/latest.log` and crashes in `Documents/Horizon/crash-reports/`, both
-readable in the Files app.
+**Status: the Rust side compiles for `aarch64-apple-ios`, and the macOS workflow builds, ad-hoc
+signs and packages `Horizon.ipa` (the CI run is green); it has not been run on a phone yet.** Treat
+it as an experiment. Logs are in `Documents/Horizon/logs/latest.log` and crashes in
+`Documents/Horizon/crash-reports/`, both readable in the Files app.
 
 Unlike the Android build there is **no in-app game-file downloader** and **no Microsoft login**:
 the game files are prepared on a PC and copied to the phone once (see "Game files"), and the app
@@ -39,7 +39,7 @@ The repository builds the IPA on GitHub's macOS runners, so no Mac is needed:
 3. Download the `Horizon-ios-<sha>` artifact. Pushing a `v*` tag also publishes
    `Horizon.ipa` as a release asset, which is the easiest file to open on the phone.
 
-The workflow is `.github/workflows/ios.yml`; it runs `packaging/ios/build_ipa.sh` on `macos-14`.
+The workflow is `.github/workflows/ios.yml`; it runs `packaging/ios/build_ipa.sh` on `macos-15`.
 It does not need any secrets: the IPA is unsigned apart from an ad-hoc signature, and the
 signing app re-signs it.
 
