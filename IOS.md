@@ -1,7 +1,7 @@
-# Horizon on iOS (arm64, experimental)
+# Aksi (Horizon on iOS, arm64, experimental)
 
-The same game as the desktop and Android builds, as a native `.app`/`.ipa`. There is no Xcode
-project: `crates/horizon-ios` compiles horizon-client's game (`src/game.rs` + `src/game/`) into
+The same game as the desktop and Android builds, as a native `.app`/`.ipa`, branded **Aksi** on the
+home screen (the bundle and the `.ipa` keep the name `Horizon`). There is no Xcode project: `crates/horizon-ios` compiles horizon-client's game (`src/game.rs` + `src/game/`) into
 `libhorizon.a`, with `crates/horizon-client/src/ios_main.rs` as its entry point instead of
 `main.rs`, and `packaging/ios/build_ipa.sh` links it against `packaging/ios/main.m`. Rendering is
 wgpu on Metal, sound is cpal on CoreAudio, and input is winit's UIKit backend.
@@ -75,7 +75,7 @@ Environment variables:
 2. Open it in ESign/Feather and sign it with your certificate. Keep the bundle id
    `dev.horizonlab.horizon` unless another app already uses it; the signing app can change it.
 3. Install, then trust the certificate: **Settings → General → VPN & Device Management**.
-4. Launch Horizon once. It creates `On My iPhone → Horizon` (the app's `Documents/Horizon`).
+4. Launch Aksi once. It creates `On My iPhone → Aksi` (the app's `Documents/Horizon`).
 
 With AltStore or Sideloadly, drag the IPA into the app on the computer and sign as usual.
 
@@ -95,9 +95,9 @@ cargo run --release -p horizon-prepare -- sounds    # optional
 The result is `.local/horizon-client/26.3/`, the folder with `horizon-resources.json` in it.
 Copy its **contents** (not the folder itself) into the app:
 
-- **Finder** (macOS or Windows with iTunes/Apple Devices): iPhone → Files → **Horizon** →
+- **Finder** (macOS or Windows with iTunes/Apple Devices): iPhone → Files → **Aksi** →
   `Documents/Horizon/resources/`, or
-- **Files app** on the phone: **On My iPhone → Horizon → resources**.
+- **Files app** on the phone: **On My iPhone → Aksi → resources**.
 
 After copying, `Documents/Horizon/resources/horizon-resources.json` must exist. When updating,
 choose "Replace" so stale files do not stay behind.
@@ -181,7 +181,7 @@ JNI bridge, `game/android_ime.rs`).
   and remember a free Apple ID is limited to a few apps and expires after 7 days.
 - **Black screen with a running app:** the renderer may have failed before the first frame.
   The log records each backend step; please attach it to a bug report.
-- **Where is the log?** `On My iPhone → Horizon → logs → latest.log`. It can be shared from the
+- **Where is the log?** `On My iPhone → Aksi → logs → latest.log`. It can be shared from the
   Files app without a computer.
 
 ## How it is put together

@@ -1,4 +1,5 @@
 //! The pause menu (PauseScreen) and death screen (DeathScreen) layouts.
+use super::aksi;
 use super::{Game, Screen};
 use horizon_client::{
     Result,
@@ -22,7 +23,8 @@ impl Screen {
             | Self::Friends
             | Self::ServerLinks
             | Self::ConfirmLink
-            | Self::DialogWarning => true,
+            | Self::DialogWarning
+            | Self::Aksi => true,
             Self::Playing
             | Self::GameModeSwitcher
             | Self::Chat
@@ -230,6 +232,8 @@ impl Game<'_> {
                 });
             }
         }
+        // The Aksi pill: the way into the branded menu.
+        aksi::draw_pill(batch, atlas, self.cursor, self.settings.extras.accent);
         // SpriteIconButton.withTootip: the label as a tooltip.
         if let Some(tip) = tooltip {
             let lines: Vec<Text> = atlas
@@ -242,6 +246,12 @@ impl Game<'_> {
         }
     }
     pub(super) fn pause_click(&mut self) -> Result<()> {
+        let [px, py, pw, ph] = aksi::pill_rect();
+        if ui::hovered(self.cursor, px, py, pw, ph) {
+            self.open_aksi();
+            self.audio.play_button_click();
+            return Ok(());
+        }
         let (w, h) = {
             let size = self
                 .renderer
@@ -525,6 +535,7 @@ mod tests {
     fn menu_blur_matches_vanilla_screen_backgrounds() {
         for screen in [
             Screen::Options,
+            Screen::Aksi,
             Screen::Stats,
             Screen::Advancements,
             Screen::WorldOptions,

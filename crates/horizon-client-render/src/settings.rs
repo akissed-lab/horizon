@@ -425,6 +425,17 @@ fn mem_total_kb() -> u64 {
     0
 }
 
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
+fn mem_total_kb() -> u64 {
+    0
+}
+
+/// The device's physical memory in KB, 0 where it can't be read (on a
+/// desktop it doesn't matter). The Aksi menu shows it beside the presets.
+pub fn physical_memory_kb() -> u64 {
+    mem_total_kb()
+}
+
 impl Settings {
     /// The render settings and resource packs a crash report lists.
     fn describe_for_crashes(&self) {

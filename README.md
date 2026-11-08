@@ -1,27 +1,28 @@
 <p align="center">
-  <img src="docs/media/icon-256.png" width="128" alt="Horizon">
+  <img src="docs/media/icon-256.png" width="128" alt="Aksi">
 </p>
 
-<h1 align="center">Horizon для Android / Horizon for Android</h1>
+<h1 align="center">Aksi — Horizon для iOS / Horizon for iOS</h1>
 
 <p align="center">
-  Неофициальный порт Horizon (Minecraft: Java Edition на Rust) на Android<br>
-  Unofficial Android port of Horizon, Minecraft: Java Edition rewritten in Rust
+  Неофициальный порт Horizon (Minecraft: Java Edition на Rust) на iPhone и iPad<br>
+  Unofficial iOS port of Horizon, Minecraft: Java Edition rewritten in Rust
 </p>
 
 <p align="center">
-  <a href="https://github.com/Rayan-XOO/horizon/releases/latest"><img src="https://img.shields.io/github/v/release/Rayan-XOO/horizon?label=release" alt="Latest release"></a>
-  <a href="https://github.com/Rayan-XOO/horizon/releases"><img src="https://img.shields.io/github/downloads/Rayan-XOO/horizon/total" alt="Downloads"></a>
-  <img src="https://img.shields.io/badge/version-0.3.0-2EA043" alt="Version 0.3.0">
-  <img src="https://img.shields.io/badge/Android-8.0%2B%20arm64-3DDC84?logo=android&logoColor=white" alt="Android 8.0+">
+  <a href="https://github.com/akissed-lab/horizon/releases/latest"><img src="https://img.shields.io/github/v/release/akissed-lab/horizon?label=release" alt="Latest release"></a>
+  <a href="https://github.com/akissed-lab/horizon/releases"><img src="https://img.shields.io/github/downloads/akissed-lab/horizon/total" alt="Downloads"></a>
+  <img src="https://img.shields.io/badge/version-0.4.0-8B5CF6" alt="Version 0.4.0">
+  <img src="https://img.shields.io/badge/iOS-15%2B%20arm64-000000?logo=apple&logoColor=white" alt="iOS 15+">
   <img src="https://img.shields.io/badge/Minecraft-Java%2026.3-5D9C3F" alt="Minecraft Java 26.3">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/Rayan-XOO/horizon" alt="License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/akissed-lab/horizon" alt="License"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Rayan-XOO/horizon/releases/latest"><b>Скачать APK / Download APK</b></a> ·
+  <a href="https://github.com/akissed-lab/horizon/releases/latest"><b>Скачать IPA / Download IPA</b></a> ·
   <a href="#русский">Русский</a> ·
-  <a href="#english">English</a>
+  <a href="#english">English</a> ·
+  <a href="IOS.md">IOS.md</a>
 </p>
 
 > Ранняя версия, многое ещё не доделано. / Early build, plenty is still unfinished.
@@ -30,292 +31,155 @@
 
 ### Что это
 
-Horizon — это Minecraft: Java Edition 26.3, заново написанный на Rust (нативный клиент, не Java). Этот форк запускает его на Android-телефонах: Vulkan-рендер, сенсорное управление, загрузка файлов игры прямо на телефоне.
+Aksi — это Minecraft: Java Edition 26.3, заново написанный на Rust (нативный клиент, без Java),
+собранный как приложение для iPhone и iPad. Рендер идёт через Metal, звук — через CoreAudio,
+управление — сенсорное и мышью/клавиатурой по Bluetooth.
 
+Это неофициальный порт [Horizon](https://github.com/horizon-rust/horizon) на iOS. Проект — форк
+https://github.com/horizon-rust/horizon, и вся основная работа — заслуга оригинальных авторов
+Horizon. Спасибо им. Порт для iOS и оформление Aksi сделал [akissed](https://github.com/akissed-lab);
+до этого тот же форк собирался под Android.
 
-Это неофициальный порт [Horizon](https://github.com/horizon-rust/horizon) на Android. Проект — форк
-репозитория https://github.com/horizon-rust/horizon, и вся основная работа - заслуга оригинальных авторов Horizon.
-Спасибо им. Я только добавил то, что нужно для запуска на телефоне: сборку APK, сенсорное управление,
-экранную клавиатуру и пару мелочей.
-
-Оригинальный README лежит в [README.upstream.md](README.upstream.md).
+Оригинальный README лежит в [README.upstream.md](README.upstream.md), а всё про сборку, установку
+и ограничения iOS — в [IOS.md](IOS.md).
 
 ### Возможности
 
-- Нативная игра на Rust, без Java и эмуляции; рендер через Vulkan (запасной вариант GLES 3).
-- Сенсорное управление: джойстик, кнопки, бег, удар с поворотом камеры одним пальцем.
-- Три раскладки: «Стандарт», «Как в Bedrock» и своя; редактор кнопок (положение, размер, прозрачность)
-  и выбор, крутят ли кнопки камеру.
-- Вход в Microsoft по коду для лицензионных серверов (нужен свой одобренный Azure client ID), вход обновляется сам.
-- Игра замирает, когда свёрнута, и не тратит батарею.
-- Экранная клавиатура в чате, табличках и полях поиска.
-- Файлы игры скачиваются в самом приложении, с докачкой после обрыва.
-- Папка игры видна в «Файлах»: ресурспаки, шейдеры и миры без провода.
-
-### Важно
-
-- Я **никак не связан** с разработчиками Horizon, с Mojang или Microsoft. Это любительский проект.
-- В репозитории и в APK **нет никаких файлов Minecraft**. Нужна своя **легальная копия Minecraft Java Edition**,
-  а игровые файлы ты готовишь сам.
-
-### Скриншоты
-
-Скриншоты из оригинального Horizon (на ПК), игра на телефоне выглядит так же.
-
-<p align="center">
-  <img src="docs/media/survival.jpg" width="49%" alt="Выживание">
-  <img src="docs/media/village.jpg" width="49%" alt="Деревня">
-  <img src="docs/media/sunset.jpg" width="49%" alt="Закат">
-  <img src="docs/media/underwater.jpg" width="49%" alt="Под водой">
-</p>
+- Нативная игра на Rust, без Java и эмуляции; рендер через Metal.
+- Сенсорное управление: джойстик движения, обзор перетаскиванием, прыжок/присед, хотбар,
+  инвентарь, пауза и чат.
+- Экран **Aksi**: цвет акцента и пресеты памяти (Экономно / Обычно / Максимум), чтобы игра
+  стабильнее шла на телефоне. Открывается кнопкой **Aksi** в левом верхнем углу меню паузы.
+- Полноэкранный ландшафтный режим; системные свайпы с краёв не срабатывают случайно.
+- Миры, ресурспаки и шейдерпаки как на ПК; сохранения можно копировать через Finder или Files.
 
 ### Установка
 
-1. Скачай `horizon.apk` со страницы [Releases](https://github.com/Rayan-XOO/horizon/releases).
-2. Открой его на телефоне (разреши «установку из неизвестных источников») или `adb install -r horizon.apk`.
-3. Нужен Android 8.0+ и arm64.
+1. Скачайте `Horizon.ipa` со страницы [Releases](https://github.com/akissed-lab/horizon/releases).
+2. Подпишите его своим сертификатом в **ESign**, **Feather**, **AltStore/Sideloadly** или
+   установите через **TrollStore**.
+3. Установите приложение и доверьте сертификату: **Настройки → Основные → VPN и управление
+   устройством**.
+4. Запустите Aksi один раз: появится папка `На iPhone → Aksi` (внутри — `Documents/Horizon`).
 
-**Обновление на 0.3.0.** С 0.2.1–0.2.5 обновление ставится поверх, данные остаются. Сборка 0.2.8 была подписана другим ключом: её нужно сначала удалить (сохрани папку `saves`, см. ниже), затем установить 0.3.0.
-
-**Обновление с 0.2.0 и старше.** С версии 0.2.1 приложение подписано новым ключом, поэтому поверх старой версии оно не встанет. Старую придётся один раз удалить, а при удалении Android стирает данные игры. Перед этим скопируй миры из `Android/data/dev.horizonlab.horizon/files/saves` куда-нибудь в другое место, а после установки верни обратно.
-
-**Если Play Защита ругается.** Google часто предупреждает о любых приложениях не из Play Маркета, которые он ещё не видел. Нажми «Подробнее» → «Всё равно установить». Код приложения открыт, он весь в этом репозитории. Если хочешь, можно отправить приложение Google на перепроверку через [официальную форму](https://support.google.com/googleplay/android-developer/contact/protectappeals).
+Бесплатный Apple ID работает, но подпись живёт 7 дней; платный сертификат — год. App Store не
+предусмотрен: это неофициальный порт.
 
 ### Файлы игры
 
-При первом запуске приложение само скачает почти все файлы игры (около 525 МБ, лучше по Wi-Fi). Загрузка идёт в фоне, её можно свернуть, а если оборвётся, продолжится с того же места.
+В IPA **нет файлов Minecraft**. Нужна своя лицензионная копия **Minecraft: Java Edition 26.3**.
+Файлы готовятся на ПК (нужна Java):
 
-Есть одно но: небольшой архив `horizon-derived.zip` (около 4 МБ) телефон собрать сам не может, его делают инструменты Horizon на Java. Его нужно один раз сделать на ПК и закинуть на телефон. Выложить его сюда я не могу, потому что он получен из файлов игры.
+```sh
+cargo run --release -p horizon-prepare -- --prepare --server-jar ~/Downloads/server.jar
+cargo run --release -p horizon-prepare -- sounds    # необязательно
+```
 
-**Как сделать архив (один раз, на ПК с Java 25 и Rust):**
+Затем скопируйте **содержимое** папки `.local/horizon-client/26.3/` (не саму папку) в
+`Documents/Horizon/resources/` — через Finder или приложение Files. Приложение стартует сразу в игру
+и не скачивает файлы само.
 
-1. Скачай этот репозиторий и открой в нём терминал.
-2. Скачай `server.jar` версии 26.3 с официального сайта Minecraft и подготовь файлы игры:
-   ```sh
-   cargo run --release -p horizon-prepare -- --prepare --server-jar ~/Downloads/server.jar
-   ```
-3. Упакуй архив:
-   ```sh
-   bash packaging/android/make_derived_pack.sh
-   ```
-   Готовый файл появится в `target/android/horizon-derived.zip`.
+Подробности и структура папок: [IOS.md](IOS.md).
 
-**Как закинуть на телефон:**
+### Ограничения
 
-1. Запусти Horizon один раз, чтобы Android создал папку игры.
-2. Скопируй `horizon-derived.zip` в папку
-   `/storage/emulated/0/Android/data/dev.horizonlab.horizon/files/`
-   (через провод, файловый менеджер с доступом к `Android/data` или `adb push horizon-derived.zip /sdcard/Android/data/dev.horizonlab.horizon/files/`).
-3. В приложении нажми «Повторить», загрузка дойдёт до конца, и игра запустится.
+- **Нет экранной клавиатуры.** Чат, команды, таблички и поля ввода требуют аппаратной клавиатуры;
+  мост UIKit и вход через Ely.by — в 0.5.0.
+- **Нет входа Microsoft.** Пока доступны локальные миры и офлайн-серверы.
+- **Память.** Игра занимает около 2.2 ГБ; на 4 ГБ телефоне iOS обычно закрывает её при загрузке
+  мира. Рекомендуется 6 ГБ ОЗУ и дальность прорисовки 4–6 (пресет «Экономно»).
+- Моды, HDR и контроллеры не поддерживаются; буфер обмена общий только внутри игры.
 
-Если друг уже сделал архив, можно взять у него, он одинаковый для всех на версии 26.3.
-
-Не удаляй приложение без нужды: Android при удалении стирает его папку вместе со скачанными файлами, сохранениями и архивом. Для обновления просто ставь новый APK поверх старого.
-
-Папка игры видна в приложении «Файлы» как «Horizon» (на Samsung через «Файлы» от Google или любой файловый менеджер с SAF). Там лежат `resourcepacks`, `shaderpacks` и `saves`, так что ресурспаки и шейдеры можно просто туда скопировать, без провода и `Android/data`.
-
-Как подготовить все файлы на ПК целиком, без загрузки на телефоне, написано в [ANDROID.md](ANDROID.md).
-
-### Управление
-
-- Джойстик слева для движения, свайп справа — осмотреться.
-- Кнопки: прыжок, присед, атака, использование, инвентарь, смена слота.
-- Пауза в правом верхнем углу, кнопка **X** закрывает открытый экран.
-- Кнопки **F1 / F2 / F3 / F5** (скрыть HUD, скриншот, отладка, камера).
-- Экранная клавиатура сама открывается в чате, табличках, поиске и т.д.
-- Редактор раскладки (шестерёнка): двигай кнопки, меняй размер и прозрачность, сохраняй.
-- Быстрый тап по мобу — атака.
-
-### Поддерживаемые устройства
-
-Порту нужны **arm64**, **Android 8.0+ (API 26)** и GPU с **Vulkan**.
-Желательно **4 ГБ ОЗУ и больше**: игра занимает около 2,2 ГБ, на слабых телефонах ставьте дальность прорисовки 4–6.
-
-| Устройство / чип | GPU | Статус |
-|---|---|---|
-| Samsung Galaxy S25 | Adreno 830 | ✅ Проверено |
-| Vivo Y31 4G (Snapdragon 662) | Adreno 610 | ✅ Проверено |
-| Samsung Galaxy S24 FE (Exynos 2400e) | Xclipse 940 | ✅ Проверено |
-| Samsung Galaxy S20+ (Snapdragon 865) | Adreno 650 | ✅ Проверено |
-| Samsung Galaxy S20+ (Exynos 990) | Mali-G77 | ✅ Проверено |
-| Samsung Galaxy M54 5G (Exynos 1380) | Mali-G68 | ✅ Проверено |
-| Samsung Galaxy S6 (Exynos 7420) | Mali-T760 | ✅ Проверено |
-
-
-### Известные проблемы
-
-- Ест около **2,2 ГБ ОЗУ**, на слабых телефонах может вылетать. Попробуй дальность прорисовки 4-6.
-- Это **ранняя, экспериментальная** версия: баги будут. Лог: `/storage/emulated/0/Android/data/dev.horizonlab.horizon/files/logs/latest.log`, отчёты о вылетах рядом в `crash-reports/`. Открывается любым файловым менеджером (на новых Android папка Android/data видна не всем менеджерам, тогда нужен менеджер с доступом к ней или `adb pull`).
-
-### Частые вопросы
-
-**Play Защита пишет, что приложение небезопасно.** Так бывает с любым APK не из Play Маркета. «Подробнее» → «Всё равно установить». Весь код открыт в этом репозитории.
-
-**Какие разрешения нужны?** Интернет и состояние сети (скачать файлы игры), уведомления и фоновая работа (чтобы загрузка не прерывалась в свёрнутом виде). Доступ к памяти не запрашивается: всё хранится в папке приложения.
-
-**Нужна ли лицензия Minecraft?** Да, нужна своя легальная копия Minecraft: Java Edition. В APK нет ни одного файла игры.
-
-**Будет ли работать на моём телефоне?** Нужны Android 8.0+, arm64 и желательно от 4 ГБ ОЗУ. Список устройств — в разделе «Поддерживаемые устройства».
+Лог: `На iPhone → Aksi → logs → latest.log`. Падения: `crash-reports/`.
 
 ### Сборка
 
-Инструкции по сборке APK в [ANDROID.md](ANDROID.md).
+IPA собирается на macOS-раннере GitHub Actions: форкните репозиторий, включите Actions и
+запустите workflow **ios** (или отправьте тег `v*` — он опубликует релиз). Мак не нужен.
+Локально: `./packaging/ios/build_ipa.sh`.
 
 ### Благодарности
 
-Вся основная работа над игрой сделана авторами [Horizon](https://github.com/horizon-rust/horizon) ([playhorizon.dev](https://playhorizon.dev)).
+Игра — работа авторов [Horizon](https://github.com/horizon-rust/horizon)
+([playhorizon.dev](https://playhorizon.dev)). Horizon распространяется по лицензии MIT; Aksi
+не связан с Mojang или Microsoft.
 
-### Лицензия
-
-MIT, как и оригинал. Файл [LICENSE](LICENSE) и копирайт оригинальных авторов не тронуты.
-
----
+Порт для iOS и брендинг Aksi: [akissed](https://github.com/akissed-lab).
 
 ## English
 
-### What is this
+### What this is
 
-Horizon is Minecraft: Java Edition 26.3 rewritten from scratch in Rust (a native client, no Java). This fork runs it on Android phones: Vulkan rendering, touch controls and an in-app game file download.
+Aksi is Minecraft: Java Edition 26.3 rewritten from scratch in Rust (a native client, no Java),
+packaged as an iPhone and iPad app. Rendering is Metal, sound is CoreAudio, and input is touch plus
+Bluetooth mouse and keyboard.
 
+This is an unofficial iOS port of [Horizon](https://github.com/horizon-rust/horizon). It is a fork
+of https://github.com/horizon-rust/horizon, and almost all the real work belongs to the original
+Horizon authors — thank you. The iOS port and the Aksi branding are by
+[akissed](https://github.com/akissed-lab); the same fork was previously built for Android.
 
-This is an unofficial Android port of [Horizon](https://github.com/horizon-rust/horizon). It's a fork of
-https://github.com/horizon-rust/horizon, and almost all the real work belongs to the original Horizon authors,
-thanks to them. I just added what's needed to run it on a phone: APK packaging, touch controls, an on-screen
-keyboard and a few small things.
-
-The original README lives in [README.upstream.md](README.upstream.md).
+The upstream README is [README.upstream.md](README.upstream.md); iOS build, install and limits are
+in [IOS.md](IOS.md).
 
 ### Features
 
-- Native Rust game, no Java VM or emulation; Vulkan rendering with a GLES 3 fallback.
-- Touch controls: joystick, buttons, sprint toggle, attack while turning the camera with one finger.
-- Three layouts: Standard, Bedrock-style and your own; a button editor (position, size, opacity)
-  and a switch for whether buttons also turn the camera.
-- Microsoft sign-in by code for licensed servers (needs your own approved Azure client ID); it renews by itself.
-- The game freezes while it's in the background, so it doesn't drain the battery.
-- On-screen keyboard for chat, signs and search fields.
-- Game files are downloaded inside the app and resume after interruptions.
-- Game folder shows up in the Files app: resource packs, shaders and worlds without a cable.
-
-### Heads up
-
-- I'm **not affiliated** with the Horizon developers, Mojang or Microsoft. This is a hobby project.
-- **No Minecraft files are included** in this repo or the APK. You need your own **legit copy of Minecraft Java
-  Edition** and you prepare the game files yourself.
-
-### Screenshots
-
-Screenshots from the original Horizon on PC; the phone build renders the same game.
-
-<p align="center">
-  <img src="docs/media/survival.jpg" width="49%" alt="Survival">
-  <img src="docs/media/village.jpg" width="49%" alt="Village">
-  <img src="docs/media/sunset.jpg" width="49%" alt="Sunset">
-  <img src="docs/media/underwater.jpg" width="49%" alt="Underwater">
-</p>
+- A native Rust game, no Java or emulation; Metal rendering.
+- Touch controls: movement joystick, look by dragging, jump/sneak, hotbar, inventory, pause and chat.
+- The **Aksi** screen: an accent colour and memory presets (Economy / Normal / Maximum) to keep the
+  game stable on a phone. Open it with the **Aksi** button in the pause menu's top-left corner.
+- Fullscreen landscape; a swipe from a screen edge no longer leaves the game by accident.
+- Worlds, resource packs and shader packs as on desktop; saves copy in and out through Finder or the
+  Files app.
 
 ### Install
 
-1. Grab `horizon.apk` from [Releases](https://github.com/Rayan-XOO/horizon/releases).
-2. Open it on your phone (allow "install unknown apps") or run `adb install -r horizon.apk`.
-3. Needs Android 8.0+ and an arm64 device.
+1. Download `Horizon.ipa` from [Releases](https://github.com/akissed-lab/horizon/releases).
+2. Sign it with your certificate in **ESign**, **Feather**, **AltStore/Sideloadly**, or install it
+   with **TrollStore**.
+3. Install, then trust the certificate: **Settings → General → VPN & Device Management**.
+4. Launch Aksi once; it creates `On My iPhone → Aksi` (`Documents/Horizon` inside).
 
-**Upgrading to 0.3.0.** From 0.2.1–0.2.5 it installs over the top and keeps your data. The 0.2.8 build was signed with a different key: uninstall it first (back up `saves`, see below), then install 0.3.0.
-
-**Upgrading from 0.2.0 or older.** Starting with 0.2.1 the app is signed with a new key, so it won't install over the old one. Uninstall the old version once; Android wipes the game data when you do. Copy your worlds from `Android/data/dev.horizonlab.horizon/files/saves` somewhere safe first and put them back after installing.
-
-**If Play Protect complains.** Google often warns about apps from outside the Play Store that it hasn't seen before. Tap "More details" → "Install anyway". The app is open source; all of the code is in this repo. If you like, you can ask Google to re-check it through the [official form](https://support.google.com/googleplay/android-developer/contact/protectappeals).
+A free Apple ID works but the signature expires after 7 days; a paid certificate lasts a year. There
+is no App Store distribution: this is an unofficial port.
 
 ### Game files
 
-On first launch the app downloads almost all game files by itself (about 525 MB, Wi-Fi recommended). It runs in the background, and if it gets interrupted it picks up where it left off.
+The IPA contains **no Minecraft files**. You need your own legit copy of **Minecraft: Java Edition
+26.3**. Prepare the files on a PC (needs Java):
 
-One catch: a small archive, `horizon-derived.zip` (about 4 MB), can't be built on the phone because Horizon makes it with Java tools. You need to build it once on a PC and copy it to the phone. I can't upload it here because it's derived from the game files.
+```sh
+cargo run --release -p horizon-prepare -- --prepare --server-jar ~/Downloads/server.jar
+cargo run --release -p horizon-prepare -- sounds    # optional
+```
 
-**Building the archive (once, on a PC with Java 25 and Rust):**
+Copy the **contents** of `.local/horizon-client/26.3/` (not the folder itself) into
+`Documents/Horizon/resources/` through Finder or the Files app. The app starts straight into the
+game and never downloads game files itself.
 
-1. Clone this repo and open a terminal in it.
-2. Download the 26.3 `server.jar` from the official Minecraft site and prepare the game files:
-   ```sh
-   cargo run --release -p horizon-prepare -- --prepare --server-jar ~/Downloads/server.jar
-   ```
-3. Pack the archive:
-   ```sh
-   bash packaging/android/make_derived_pack.sh
-   ```
-   The file ends up in `target/android/horizon-derived.zip`.
+Folder layout and details: [IOS.md](IOS.md).
 
-**Copying it to the phone:**
+### Limitations
 
-1. Launch Horizon once so Android creates the game folder.
-2. Copy `horizon-derived.zip` to
-   `/storage/emulated/0/Android/data/dev.horizonlab.horizon/files/`
-   (over USB, with a file manager that can open `Android/data`, or `adb push horizon-derived.zip /sdcard/Android/data/dev.horizonlab.horizon/files/`).
-3. Tap "Retry" in the app. The download finishes and the game starts.
+- **No on-screen keyboard.** Chat, commands, signs and text fields need a hardware keyboard; a UIKit
+  bridge and Ely.by sign-in arrive in 0.5.0.
+- **No Microsoft login.** Local worlds and offline-mode servers only.
+- **Memory.** The game takes about 2.2 GB; on a 4 GB phone iOS usually kills it while a world loads.
+  6 GB of RAM and a render distance of 4–6 (the "Economy" preset) are recommended.
+- Mods, HDR and controllers are unsupported; the clipboard is in-game only.
 
-If a friend already built the archive, you can just take theirs; it's the same for everyone on 26.3.
+Log: `On My iPhone → Aksi → logs → latest.log`. Crashes: `crash-reports/`.
 
-Don't uninstall the app unless you have to: Android wipes its folder, including downloaded files, saves and the archive. To update, just install the new APK over the old one.
+### Build
 
-The game folder also shows up in the Files app as "Horizon" (on Samsung use Google's "Files" app or any file manager with SAF). Inside are `resourcepacks`, `shaderpacks` and `saves`, so you can just drop resource packs and shaders in there, no cable or `Android/data` needed.
-
-To prepare everything on a PC without the on-phone download, see [ANDROID.md](ANDROID.md).
-
-### Controls
-
-- Joystick on the left to move, swipe on the right to look around.
-- Buttons: jump, sneak, attack, use, inventory, next slot.
-- Pause in the top-right corner, **X** closes the open screen.
-- **F1 / F2 / F3 / F5** buttons (hide HUD, screenshot, debug, camera).
-- The on-screen keyboard pops up by itself in chat, signs, search fields, etc.
-- Layout editor (gear icon): move buttons, resize them, change opacity, save.
-- Quick tap on a mob attacks it.
-
-### Supported Devices
-
-The port requires **arm64**, **Android 8.0+ (API 26)**, and a GPU with **Vulkan** support.
-**4 GB of RAM or more** is recommended: the game takes up about 2.2 GB; on lower-end phones, set the draw distance to 4–6.
-
-| Device / Chip | GPU | Status |
-|---|---|---|
-| Samsung Galaxy S25 | Adreno 830 | ✅ Tested |
-| Vivo Y31 4G (Snapdragon 662) | Adreno 610 | ✅ Tested |
-| Samsung Galaxy S24 FE (Exynos 2400e) | Xclipse 940 | ✅ Verified |
-| Samsung Galaxy S20+ (Snapdragon 865) | Adreno 650 | ✅ Verified |
-| Samsung Galaxy S20+ (Exynos 990) | Mali-G77 | ✅ Verified |
-| Samsung Galaxy M54 5G (Exynos 1380) | Mali-G68 | ✅ Verified |
-| Samsung Galaxy S6 (Exynos 7420) | Mali-T760 | ✅ Verified |
-
-### Known issues
-
-- Uses around **2.2 GB of RAM**, weaker phones may crash. Try render distance 4-6.
-- This is an **early, experimental** build, so expect bugs. Log: `/storage/emulated/0/Android/data/dev.horizonlab.horizon/files/logs/latest.log`, crash reports next to it in `crash-reports/`. Any file manager can open it (on newer Android, Android/data needs a file manager that has access to it, or use `adb pull`).
-
-### FAQ
-
-**Play Protect says the app is unsafe.** That happens with most APKs from outside the Play Store. Tap "More details" → "Install anyway". All the code is in this repo.
-
-**What permissions does it need?** Internet and network state (to download the game files), notifications and a foreground service (so the download keeps going in the background). No storage permission: everything lives in the app's own folder.
-
-**Do I need to own Minecraft?** Yes, your own legit copy of Minecraft: Java Edition. The APK contains no game files.
-
-**Will it run on my phone?** Android 8.0+, arm64, ideally 4 GB of RAM or more. See "Supported devices" above.
-
-### Building
-
-APK build instructions are in [ANDROID.md](ANDROID.md).
-
-The experimental iOS sideload build (arm64, GitHub Actions + ESign/Feather, no in-app downloader) is in
-[IOS.md](IOS.md).
+The IPA is built on GitHub Actions' macOS runners: fork the repository, enable Actions and run the
+**ios** workflow (or push a `v*` tag, which publishes a release). No Mac needed. Locally:
+`./packaging/ios/build_ipa.sh`.
 
 ### Credits
 
-The game itself is the work of the [Horizon](https://github.com/horizon-rust/horizon) authors ([playhorizon.dev](https://playhorizon.dev)).
+The game is the work of the [Horizon](https://github.com/horizon-rust/horizon) authors
+([playhorizon.dev](https://playhorizon.dev)). Horizon is MIT licensed; Aksi is not approved by or
+associated with Mojang or Microsoft.
 
-### License
-
-MIT, same as the original. The [LICENSE](LICENSE) file and the original authors' copyright are left untouched.
-
----
-
-Автор порта / Port author: [Rayan-XOO](https://github.com/Rayan-XOO)
+iOS port and Aksi branding: [akissed](https://github.com/akissed-lab).

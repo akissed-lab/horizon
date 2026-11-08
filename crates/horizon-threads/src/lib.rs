@@ -274,6 +274,27 @@ pub fn physical_memory_kb() -> u64 {
     if read == 0 { bytes / 1024 } else { 0 }
 }
 
+/// The process's peak resident memory in KiB (`getrusage(RUSAGE_SELF).ru_maxrss`),
+/// which the iOS log prints every 30 s and on a low-memory warning: after a
+/// silent jetsam kill it shows how close to the ~2.2 GB cap the app ran. 0
+/// when the call fails or on platforms where it isn't read.
+#[cfg(target_vendor = "apple")]
+pub fn peak_memory_kb() -> u64 {
+    let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
+    // SAFETY: writes into our own `rusage`; no pointers are kept.
+    let read = unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) };
+    if read != 0 {
+        return 0;
+    }
+    // ru_maxrss is bytes on Apple platforms (KiB on Linux).
+    usage.ru_maxrss as u64 / 1024
+}
+
+#[cfg(not(target_vendor = "apple"))]
+pub fn peak_memory_kb() -> u64 {
+    0
+}
+
 /// The REPARSE_DATA_BUFFER of a mount point naming `name` (UTF-16, `\??\` prefixed). The length
 /// fields are 16 bits: a name too long for them is an error, so the caller copies instead.
 #[cfg(windows)]

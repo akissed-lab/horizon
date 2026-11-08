@@ -57,7 +57,11 @@ pub extern "C" fn horizon_ios_main() -> i32 {
     }
     let _ = std::env::set_current_dir(&home);
     logging::init(&home, "Render thread");
-    log::info!("Horizon {} (iOS) home {}", crash::version(), home.display());
+    log::info!(
+        "Aksi (Horizon) {} (iOS) home {}",
+        crash::version(),
+        home.display()
+    );
     crash::install(home.clone(), "client");
     raise_open_file_limit();
     // A panic here is already in the crash report (crash::install). Catch it
@@ -73,6 +77,19 @@ pub extern "C" fn horizon_ios_main() -> i32 {
     }
     logging::flush();
     0
+}
+
+/// Called by `main.m` when iOS posts a memory warning: note the peak, ask the
+/// allocator for the free pages back and flush the log, so a jetsam kill just
+/// after it still leaves a record behind.
+#[unsafe(no_mangle)]
+pub extern "C" fn horizon_ios_memory_warning() {
+    log::warn!(
+        "Horizon: low memory warning: peak {} MB",
+        horizon_threads::peak_memory_kb() / 1024
+    );
+    horizon_threads::release_free_memory();
+    logging::flush();
 }
 
 /// The JVM raises its open-file limit to the hard limit as it starts

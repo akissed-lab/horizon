@@ -43,6 +43,7 @@ mod advancements;
 mod advancements_screen;
 mod agent;
 mod agent_settings;
+mod aksi;
 mod allays;
 mod armor_stands;
 mod atlas_slots;
@@ -721,6 +722,9 @@ enum Screen {
     DialogWarning,
     /// WinScreen: the end poem and the credits (game/win.rs).
     Win,
+    /// Aksi: the branding, accent colour and memory presets the iOS port
+    /// opens from the pause menu (game/aksi.rs).
+    Aksi,
 }
 struct Mining {
     pos: [i32; 3],
@@ -2409,6 +2413,8 @@ struct Game<'a> {
     show_chunk_borders: bool,
     /// PauseScreen.showPauseMenu (false after F3+Escape).
     pause_menu: bool,
+    /// The Aksi menu's state (game/aksi.rs).
+    aksi: aksi::AksiMenu,
     /// MultiPlayerGameMode.previousLocalPlayerMode (F3+N goes back to it).
     previous_mode: Option<horizon_client::command::args::GameMode>,
     gamemode_switcher: Option<horizon_client::game_mode_switcher::GameModeSwitcher>,
@@ -6203,6 +6209,14 @@ impl Game<'_> {
             None => 0.0,
         };
         self.ticks += 1;
+        // Every 30 s on iOS, note the peak memory: a silent jetsam kill leaves
+        // the log with how close to the ~2.2 GB per-process cap it ran.
+        if cfg!(target_os = "ios") && self.ticks % 600 == 0 {
+            log::info!(
+                "Horizon: memory: peak {} MB",
+                horizon_threads::peak_memory_kb() / 1024
+            );
+        }
         self.track_experience_display();
         self.tick_enchanting_book();
         // `/tick freeze` stops the world but not the player.
@@ -6811,6 +6825,7 @@ impl Game<'_> {
             && (matches!(
                 self.screen,
                 Screen::Paused
+                    | Screen::Aksi
                     | Screen::Options
                     | Screen::Stats
                     | Screen::Advancements
@@ -7491,6 +7506,7 @@ impl Game<'_> {
                 self.draw_creative(&mut batch);
             }
             Screen::Chat => self.draw_chat_screen(&mut batch),
+            Screen::Aksi => self.draw_aksi(&mut batch),
             Screen::Playing | Screen::Options | Screen::Win => {}
         }
         self.draw_saving_indicator(&mut batch);
@@ -13996,6 +14012,7 @@ impl Game<'_> {
                 Screen::CommandBlock => self.close_command_block(),
                 Screen::BlockEditor => self.close_block_editor(),
                 Screen::Chat => self.close_chat(chat::ChatExit::Intentional),
+                Screen::Aksi => self.close_aksi(),
                 Screen::Win => self.close_win_screen()?,
             },
             KeyCode::Digit1
@@ -15144,6 +15161,9 @@ impl ApplicationHandler for Game<'_> {
                         {
                             self.pause_click()?
                         }
+                        Screen::Aksi if pressed && button == MouseButton::Left => {
+                            self.aksi_click()?
+                        }
                         Screen::WorldOptions if pressed && button == MouseButton::Left => {
                             self.world_options_click()
                         }
@@ -16181,6 +16201,7 @@ impl<'a> Game<'a> {
             show_hitboxes: false,
             show_chunk_borders: false,
             pause_menu: true,
+            aksi: aksi::AksiMenu::default(),
             previous_mode: None,
             gamemode_switcher: None,
             clipboard: Default::default(),

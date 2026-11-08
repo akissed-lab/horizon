@@ -13,6 +13,60 @@ pub const SORT_KEY: &str = "horizon.sort";
 pub const MINIMAP_SIZES: [(u8, &str); 3] = [(64, "Small"), (96, "Medium"), (128, "Large")];
 pub const MINIMAP_ZOOMS: [f32; 4] = [0.5, 1.0, 2.0, 4.0];
 
+/// The Aksi menu's accent colours (`accentColor`), in 0xRRGGBB. Aksi's
+/// violet comes first, so a fresh install has the brand colour.
+pub const ACCENTS: [(u32, &str); 8] = [
+    (0x8B5CF6, "horizon.aksi.color.violet"),
+    (0x3B82F6, "horizon.aksi.color.blue"),
+    (0x14B8A6, "horizon.aksi.color.teal"),
+    (0x22C55E, "horizon.aksi.color.green"),
+    (0xF59E0B, "horizon.aksi.color.amber"),
+    (0xF43F5E, "horizon.aksi.color.rose"),
+    (0xEAB308, "horizon.aksi.color.gold"),
+    (0xE5E7EB, "horizon.aksi.color.white"),
+];
+
+/// A memory preset the Aksi menu applies (`memoryPreset`): fewer chunks,
+/// entities and frames use less of the phone's memory and battery.
+#[derive(Clone, Copy)]
+pub struct MemoryPreset {
+    pub label: &'static str,
+    pub render_distance: i32,
+    pub simulation_distance: i32,
+    pub max_fps: u32,
+    pub entity_distance: f32,
+    /// 0 all, 1 decreased, 2 minimal.
+    pub particles: u8,
+}
+/// The presets from lightest to heaviest; the Aksi menu highlights the one
+/// whose values the settings already have.
+pub const MEMORY: [MemoryPreset; 3] = [
+    MemoryPreset {
+        label: "horizon.aksi.memory.economy",
+        render_distance: 4,
+        simulation_distance: 4,
+        max_fps: 45,
+        entity_distance: 0.5,
+        particles: 2,
+    },
+    MemoryPreset {
+        label: "horizon.aksi.memory.normal",
+        render_distance: 8,
+        simulation_distance: 6,
+        max_fps: 60,
+        entity_distance: 0.75,
+        particles: 1,
+    },
+    MemoryPreset {
+        label: "horizon.aksi.memory.max",
+        render_distance: 12,
+        simulation_distance: 8,
+        max_fps: 120,
+        entity_distance: 1.0,
+        particles: 0,
+    },
+];
+
 /// A screen corner for an overlay.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Corner {
@@ -113,6 +167,8 @@ pub struct Extras {
     pub agent_control: bool,
     /// "Playing Horizon" on the player's Discord profile (`discord_presence`; on by default).
     pub discord_presence: bool,
+    /// The Aksi menu's accent colour (`accentColor`): an index into `ACCENTS`.
+    pub accent: u8,
 }
 impl Default for Extras {
     fn default() -> Self {
@@ -146,6 +202,7 @@ impl Default for Extras {
             no_ai: false,
             agent_control: false,
             discord_presence: true,
+            accent: 0,
         }
     }
 }
@@ -221,6 +278,11 @@ impl Extras {
                 horizon_core::no_ai::KEY => e.no_ai = flag(e.no_ai),
                 "agentControl" => e.agent_control = flag(e.agent_control),
                 "discordPresence" => e.discord_presence = flag(e.discord_presence),
+                "accentColor" => {
+                    if let Ok(v) = value.parse::<u8>() {
+                        e.accent = v.min(ACCENTS.len() as u8 - 1);
+                    }
+                }
                 _ => {}
             }
         }
@@ -228,7 +290,7 @@ impl Extras {
     }
     pub fn serialize(&self) -> String {
         format!(
-            "fullbright:{}\ndynamicLights:{}\nzoom:{}\nzoomKey:{}\nzoomLevel:{}\nzoomSmooth:{}\nzoomSensitivity:{}\nfps:{}\nfpsCorner:{}\nfpsLows:{}\nkeystrokes:{}\nkeystrokesCorner:{}\nkeystrokesCps:{}\nmovedToMods:{}\nminimap:{}\nminimapCorner:{}\nminimapSize:{}\nminimapShape:{}\nminimapZoom:{}\nminimapRotate:{}\nautoReconnect:{}\nownNameTag:{}\nmouseTweaks:{}\nmouseTweaksWheel:{}\nsort:{}\nsortKey:{}\n{}:{}\nagentControl:{}\ndiscordPresence:{}\n",
+            "fullbright:{}\ndynamicLights:{}\nzoom:{}\nzoomKey:{}\nzoomLevel:{}\nzoomSmooth:{}\nzoomSensitivity:{}\nfps:{}\nfpsCorner:{}\nfpsLows:{}\nkeystrokes:{}\nkeystrokesCorner:{}\nkeystrokesCps:{}\nmovedToMods:{}\nminimap:{}\nminimapCorner:{}\nminimapSize:{}\nminimapShape:{}\nminimapZoom:{}\nminimapRotate:{}\nautoReconnect:{}\nownNameTag:{}\nmouseTweaks:{}\nmouseTweaksWheel:{}\nsort:{}\nsortKey:{}\n{}:{}\nagentControl:{}\ndiscordPresence:{}\naccentColor:{}\n",
             bool_text(self.fullbright),
             bool_text(self.dynamic_lights),
             bool_text(self.zoom),
@@ -263,6 +325,7 @@ impl Extras {
             bool_text(self.no_ai),
             bool_text(self.agent_control),
             bool_text(self.discord_presence),
+            self.accent,
         )
     }
     /// Binds the extra key `name` (`SORT_KEY`); false for
@@ -580,7 +643,18 @@ mod tests {
         e.sort = true;
         e.sort_key = "key.keyboard.r".into();
         e.discord_presence = false;
+        e.accent = 5;
         assert_eq!(Extras::parse(&e.serialize()), e);
+    }
+
+    #[test]
+    fn accent_clamps_to_the_table() {
+        assert_eq!(Extras::default().accent, 0);
+        assert_eq!(
+            Extras::parse("accentColor:200").accent,
+            ACCENTS.len() as u8 - 1
+        );
+        assert_eq!(Extras::parse("accentColor:maybe").accent, 0);
     }
 
     #[test]
