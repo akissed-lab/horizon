@@ -6921,7 +6921,7 @@ impl Game<'_> {
         }
         let Some(window) = &self.window else { return };
         let size = self.renderer.as_ref().map_or_else(
-            || window.inner_size().into(),
+            || horizon_client::window::surface_size(window),
             |r| [r.config.width, r.config.height],
         );
         let [vx, vy] = self.view_at.map(f64::from);
@@ -14468,6 +14468,7 @@ impl ApplicationHandler for Game<'_> {
         }
         // The Window constructor: created fullscreen when options.txt or --fullscreen says so.
         let fullscreen = self.settings.fullscreen || self.options.fullscreen;
+        #[cfg(not(target_os = "ios"))]
         let size = self.options.window_size.map(f64::from);
         self.fullscreen = horizon_client::window::FullscreenState::new(fullscreen);
         let attributes = Window::default_attributes()
@@ -14478,10 +14479,27 @@ impl ApplicationHandler for Game<'_> {
         let attributes = winit::platform::wayland::WindowAttributesExtWayland::with_name(
             attributes, "horizon", "horizon",
         );
+        // iOS has no window to move or resize: it is the screen. A desktop
+        // `options.txt` size (854x480 by default) would ask for a window wider
+        // than the phone and shorter than it, cropping the view and leaving a
+        // black band. Without an inner size winit uses the screen bounds.
+        #[cfg(not(target_os = "ios"))]
+        let attributes =
+            attributes.with_inner_size(winit::dpi::LogicalSize::new(size[0], size[1]));
+        // Android and iOS draw under the system bars; iOS also owns the home
+        // indicator while the game is in front. The touch controls are laid out
+        // for landscape (`sensorLandscape` on Android), so iOS is locked to it.
+        #[cfg(target_os = "ios")]
+        let attributes = {
+            use winit::platform::ios::{ValidOrientations, WindowAttributesExtIOS};
+            attributes
+                .with_prefers_status_bar_hidden(true)
+                .with_prefers_home_indicator_hidden(true)
+                .with_valid_orientations(ValidOrientations::Landscape)
+        };
         // `--offscreen` renders into a texture: its window would only show white.
         let window = match event_loop.create_window(
             attributes
-                .with_inner_size(winit::dpi::LogicalSize::new(size[0], size[1]))
                 .with_fullscreen(fullscreen.then_some(winit::window::Fullscreen::Borderless(None)))
                 .with_visible(!self.options.offscreen),
         ) {
@@ -14858,9 +14876,9 @@ impl ApplicationHandler for Game<'_> {
                         let size = self
                             .window
                             .as_ref()
-                            .map(|w| w.inner_size())
+                            .map(|w| horizon_client::window::surface_size(w))
                             .unwrap_or_default();
-                        let batch = HudBatch::new([size.width, size.height]);
+                        let batch = HudBatch::new(size);
                         title.scroll_worlds(d, self.cursor, (batch.width, batch.height));
                     }
                     // MouseHandler.onScroll: the hotbar (or the spectator
@@ -17571,6 +17589,7 @@ impl Loading {
         // The Window constructor: created fullscreen when options.txt or --fullscreen says so.
         let fullscreen =
             self.settings.fullscreen || self.options.as_ref().is_some_and(|o| o.fullscreen);
+        #[cfg(not(target_os = "ios"))]
         let size = self
             .options
             .as_ref()
@@ -17585,10 +17604,21 @@ impl Loading {
         let attributes = winit::platform::wayland::WindowAttributesExtWayland::with_name(
             attributes, "horizon", "horizon",
         );
+        // iOS has no window to move or resize: it is the screen (see `Game::resumed`).
+        #[cfg(not(target_os = "ios"))]
+        let attributes =
+            attributes.with_inner_size(winit::dpi::LogicalSize::new(size[0], size[1]));
+        #[cfg(target_os = "ios")]
+        let attributes = {
+            use winit::platform::ios::{ValidOrientations, WindowAttributesExtIOS};
+            attributes
+                .with_prefers_status_bar_hidden(true)
+                .with_prefers_home_indicator_hidden(true)
+                .with_valid_orientations(ValidOrientations::Landscape)
+        };
         // `--offscreen` renders into a texture: its window would only show white.
         let window = match event_loop.create_window(
             attributes
-                .with_inner_size(winit::dpi::LogicalSize::new(size[0], size[1]))
                 .with_fullscreen(fullscreen.then_some(winit::window::Fullscreen::Borderless(None)))
                 .with_visible(!self.options.as_ref().is_some_and(|o| o.offscreen)),
         ) {

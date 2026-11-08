@@ -1364,14 +1364,14 @@ impl Renderer {
         }
         let info = adapter.get_info();
         crate::graphics::suggest_reduced_far_detail(crate::graphics::lod_capped(&info));
-        let size = window.inner_size();
+        let size = horizon_client_input::window::surface_size(&window);
         let max_side = device.limits().max_texture_dimension_2d;
         let (config, present_modes, hdr_output) = if let Some(surface) = &surface {
             let mut config = surface
                 .get_default_config(
                     &adapter,
-                    size.width.clamp(1, max_side),
-                    size.height.clamp(1, max_side),
+                    size[0].clamp(1, max_side),
+                    size[1].clamp(1, max_side),
                 )
                 .ok_or("surface has no supported configuration")?;
             let caps = surface.get_capabilities(&adapter);
@@ -1412,8 +1412,8 @@ impl Renderer {
             let config = wgpu::SurfaceConfiguration {
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
                 format,
-                width: size.width.clamp(1, max_side),
-                height: size.height.clamp(1, max_side),
+                width: size[0].clamp(1, max_side),
+                height: size[1].clamp(1, max_side),
                 present_mode: wgpu::PresentMode::Immediate,
                 desired_maximum_frame_latency: 2,
                 alpha_mode: wgpu::CompositeAlphaMode::Opaque,
@@ -2999,7 +2999,7 @@ impl Renderer {
             post_effects: None,
             readback: readback::Readback::default(),
             info,
-            suspended: !drawable_size(size.width, size.height, max_side),
+            suspended: !drawable_size(size[0], size[1], max_side),
             acquire_validation_failures: 0,
             drawn_sections: 0,
             section_draws: 0,

@@ -29,6 +29,21 @@ pub fn gui_scaled_size(framebuffer: [i32; 2], gui_scale: i32) -> [i32; 2] {
     [scaled(framebuffer[0]), scaled(framebuffer[1])]
 }
 
+/// The framebuffer a window's swapchain should cover.
+///
+/// iOS: `Window::inner_size` excludes the safe area (the notch and the home
+/// indicator) while the view covers the whole screen, so a swapchain sized
+/// from it is stretched over the rest of the screen. The window's outer size
+/// is the screen there. Everywhere else the client area is what the surface
+/// shows.
+pub fn surface_size(window: &winit::window::Window) -> [u32; 2] {
+    #[cfg(target_os = "ios")]
+    let size = window.outer_size();
+    #[cfg(not(target_os = "ios"))]
+    let size = window.inner_size();
+    [size.width, size.height]
+}
+
 /// `MouseHandler.getScaledXPos`/`getScaledYPos`.
 pub fn scaled_pos(pos: f64, gui_scaled: i32, screen: i32) -> f64 {
     pos * f64::from(gui_scaled) / f64::from(screen)

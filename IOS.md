@@ -129,6 +129,11 @@ that sends Escape.
 A Bluetooth or USB keyboard and mouse work through winit. Controllers do not: `gilrs` has no iOS
 backend, so the `controllers` feature stays off.
 
+iOS is **landscape only**, like the Android build's `sensorLandscape`: the game fills the whole
+display, drawing under the status bar, the notch and the home indicator, and sizes its framebuffer
+from the window's outer size (winit's `inner_size` stops at the safe area and would stretch the
+picture).
+
 **There is no on-screen keyboard yet.** Chat, commands, signs, anvils, the server-address field
 and search boxes cannot be typed into without a hardware keyboard. This is the largest v1
 limitation and the first thing to fix with a UIKit text-input bridge (the Android build uses a
@@ -177,7 +182,7 @@ JNI bridge, `game/android_ime.rs`).
 | `crates/horizon-client/src/ios_main.rs` | C entry point: sets `HORIZON_HOME`/`HORIZON_RESOURCES`/`HORIZON_CACHE`, logging and crash reports, raises the file limit, runs `game::run` |
 | `packaging/ios/main.m` | plain `main` that calls `horizon_ios_main()`; it must not start UIKit — winit's iOS backend calls `UIApplicationMain` itself and refuses to run afterwards |
 | `packaging/ios/build_ipa.sh` | cargo build, `clang` link with the frameworks, `Info.plist`, icons, ad-hoc `codesign`, `zip` |
-| `packaging/ios/Info.plist` | bundle id, minimum iOS 15, Files/Finder sharing, launch screen, orientations, legacy icon list |
+| `packaging/ios/Info.plist` | bundle id, minimum iOS 15, Files/Finder sharing, launch screen, landscape-only orientations, legacy icon list |
 | `.github/workflows/ios.yml` | macOS runner build, artifact, release on tags |
 
 The game code differs from the desktop build only where the platform does: Metal is the only
