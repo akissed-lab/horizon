@@ -126,6 +126,11 @@ dragging, jump/sneak, hotbar, and the inventory, pause, chat and emote buttons. 
 is the mouse (tap = click, drag = scroll); over a screen in the world there is a close button
 that sends Escape.
 
+The layout editor (the gear) writes `touch_layout.json` in the game folder on every change — a
+drag, a size or fade tap, a preset, even leaving with the back gesture — and the app saves it again
+when iOS suspends it, so controls no longer reset after a relaunch. `options.txt` is saved the same
+way; the log names both paths and any write error.
+
 A Bluetooth or USB keyboard and mouse work through winit. Controllers do not: `gilrs` has no iOS
 backend, so the `controllers` feature stays off.
 
@@ -133,6 +138,11 @@ iOS is **landscape only**, like the Android build's `sensorLandscape`: the game 
 display, drawing under the status bar, the notch and the home indicator, and sizes its framebuffer
 from the window's outer size (winit's `inner_size` stops at the safe area and would stretch the
 picture).
+
+The app also defers the system's screen-edge gestures (`preferredScreenEdgesDeferringSystemGestures`):
+a swipe up from the bottom or down from the top only shows a hint the first time and needs a second,
+deliberate swipe, so a stray finger no longer sends the game Home or opens Control Center. That is the
+same protection games get from Guided Access, without turning it on.
 
 **There is no on-screen keyboard yet.** Chat, commands, signs, anvils, the server-address field
 and search boxes cannot be typed into without a hardware keyboard. This is the largest v1

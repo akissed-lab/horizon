@@ -14491,11 +14491,16 @@ impl ApplicationHandler for Game<'_> {
         // for landscape (`sensorLandscape` on Android), so iOS is locked to it.
         #[cfg(target_os = "ios")]
         let attributes = {
-            use winit::platform::ios::{ValidOrientations, WindowAttributesExtIOS};
+            use winit::platform::ios::{ScreenEdge, ValidOrientations, WindowAttributesExtIOS};
             attributes
                 .with_prefers_status_bar_hidden(true)
                 .with_prefers_home_indicator_hidden(true)
                 .with_valid_orientations(ValidOrientations::Landscape)
+                // The game owns every edge: a first swipe from the bottom would
+                // otherwise go Home and from the top open Control Center. Defer
+                // the system gestures so the first swipe only shows the hint and
+                // the game is not minimized by accident.
+                .with_preferred_screen_edges_deferring_system_gestures(ScreenEdge::all())
         };
         // `--offscreen` renders into a texture: its window would only show white.
         let window = match event_loop.create_window(
@@ -14553,6 +14558,10 @@ impl ApplicationHandler for Game<'_> {
             android_input::reset();
             self.touch.pointer_captured = None;
             self.audio.set_output_paused(true);
+            // A suspended app can be killed from the app switcher without a
+            // close event: keep the options and the touch layout just changed.
+            self.settings.save(&Self::options_path());
+            self.save_touch_layout();
         }
         if let Some(renderer) = &mut self.renderer {
             renderer.lose_surface();
@@ -15744,6 +15753,13 @@ impl ApplicationHandler for Game<'_> {
         self.pad_close_output();
         if let Err(e) = self.save_for_exit() {
             log::warn!("Horizon: failed to save the world on exit: {e}");
+        }
+        // Options and the touch layout are written as they change; save them
+        // once more on the way out, as a normal quit does.
+        #[cfg(any(target_os = "android", target_os = "ios"))]
+        {
+            self.settings.save(&Self::options_path());
+            self.save_touch_layout();
         }
         self.finish_perf();
     }
@@ -17610,11 +17626,16 @@ impl Loading {
             attributes.with_inner_size(winit::dpi::LogicalSize::new(size[0], size[1]));
         #[cfg(target_os = "ios")]
         let attributes = {
-            use winit::platform::ios::{ValidOrientations, WindowAttributesExtIOS};
+            use winit::platform::ios::{ScreenEdge, ValidOrientations, WindowAttributesExtIOS};
             attributes
                 .with_prefers_status_bar_hidden(true)
                 .with_prefers_home_indicator_hidden(true)
                 .with_valid_orientations(ValidOrientations::Landscape)
+                // The game owns every edge: a first swipe from the bottom would
+                // otherwise go Home and from the top open Control Center. Defer
+                // the system gestures so the first swipe only shows the hint and
+                // the game is not minimized by accident.
+                .with_preferred_screen_edges_deferring_system_gestures(ScreenEdge::all())
         };
         // `--offscreen` renders into a texture: its window would only show white.
         let window = match event_loop.create_window(

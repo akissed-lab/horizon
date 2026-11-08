@@ -701,7 +701,11 @@ impl Settings {
     }
     pub fn save(&self, path: &Path) {
         self.describe_for_crashes();
-        let _ = fs::write(path, self.serialize());
+        // The phone's game folder is writable, but a full disk or a container
+        // the system moved must not lose the change silently: say so in the log.
+        if let Err(e) = fs::write(path, self.serialize()) {
+            log::warn!("Horizon: saving {}: {e}", path.display());
+        }
         if let Some(dir) = path.parent() {
             self.horizon.save(dir);
             self.controller.save(dir);

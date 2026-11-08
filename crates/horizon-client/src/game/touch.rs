@@ -214,32 +214,55 @@ impl TouchLayout {
         }
     }
 
+    /// `touch_layout.json` in the game folder (the working directory, set to
+    /// `Documents/Horizon` on iOS and the app's files folder on Android).
+    fn path() -> std::path::PathBuf {
+        std::env::current_dir()
+            .unwrap_or_default()
+            .join(LAYOUT_FILE)
+    }
+
     fn load() -> Self {
         let mut layout = Self::default();
-        if let Ok(text) = std::fs::read_to_string(LAYOUT_FILE)
-            && let Ok(saved) = serde_json::from_str::<TouchLayout>(&text)
-        {
-            // A file from before presets has only controls: it is the player's own.
-            let preset = if text.contains("\"preset\"") { saved.preset } else { Preset::Custom };
-            if preset != Preset::Custom {
-                layout = Self::of(preset);
-            } else {
-                layout.controls.extend(saved.controls);
+        let path = Self::path();
+        match std::fs::read_to_string(&path) {
+            Ok(text) => match serde_json::from_str::<TouchLayout>(&text) {
+                Ok(saved) => {
+                    // A file from before presets has only controls: it is the player's own.
+                    let preset = if text.contains("\"preset\"") {
+                        saved.preset
+                    } else {
+                        Preset::Custom
+                    };
+                    if preset != Preset::Custom {
+                        layout = Self::of(preset);
+                    } else {
+                        layout.controls.extend(saved.controls);
+                    }
+                    layout.preset = preset;
+                    layout.opacity = saved.opacity.clamp(0.1, 1.0);
+                    layout.pass_through = saved.pass_through;
+                    log::info!("Horizon: touch layout from {}: {preset:?}", path.display());
+                }
+                Err(e) => log::warn!("Horizon: {}: {e}", path.display()),
+            },
+            // The first launch has none: the default layout is what it shows.
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                log::warn!("Horizon: reading {}: {e}", path.display());
             }
-            layout.preset = preset;
-            layout.opacity = saved.opacity.clamp(0.1, 1.0);
-            layout.pass_through = saved.pass_through;
+            Err(_) => {}
         }
         layout
     }
     fn save(&self) {
+        let path = Self::path();
         match serde_json::to_string_pretty(self) {
             Ok(text) => {
-                if let Err(e) = std::fs::write(LAYOUT_FILE, text) {
-                    log::warn!("Horizon: saving {LAYOUT_FILE}: {e}");
+                if let Err(e) = std::fs::write(&path, text) {
+                    log::warn!("Horizon: saving {}: {e}", path.display());
                 }
             }
-            Err(e) => log::warn!("Horizon: {LAYOUT_FILE}: {e}"),
+            Err(e) => log::warn!("Horizon: {}: {e}", path.display()),
         }
     }
     fn spec(&self, id: Id) -> Spec {
@@ -573,12 +596,24 @@ impl Game<'_> {
     /// Escape: closes a screen, or pauses (the controller's Start, tapped).
     pub(super) fn touch_back(&mut self) {
         if self.touch.editing {
+            // Every tap in the editor already wrote the layout; this catches a
+            // drag still in progress when the back gesture arrives.
+            self.save_touch_layout();
             self.touch.editing = false;
             self.touch.selected = None;
             return;
         }
         self.pad.injected.set(Button::Start, true);
         self.pad.taps.push(Button::Start);
+    }
+
+    /// Writes the touch layout now. The editor does so on every change; the app
+    /// also does when it goes to the background, because iOS can kill a
+    /// suspended app from the app switcher without a close event.
+    pub(super) fn save_touch_layout(&self) {
+        if cfg!(any(target_os = "android", target_os = "ios")) {
+            self.touch.layout.save();
+        }
     }
 
     /// Every finger lifted at once (the app went to the background): nothing stays held.
@@ -826,6 +861,16 @@ impl Game<'_> {
             }
             _ => {}
         }
+        // Every tap in the editor is a change the player expects to keep: write
+        // the layout now rather than only on Save, so leaving with the back
+        // gesture or the app being killed does not undo it. (Save did its own.)
+        if action != EditAction::Save {
+            if t.dirty {
+                t.layout.preset = Preset::Custom;
+                t.dirty = false;
+            }
+            t.layout.save();
+        }
     }
 
     /// A control tapped (or held) during play.
@@ -910,6 +955,7 @@ impl Game<'_> {
             self.touch.hardware = false;
         }
         if self.touch.editing && !self.touch_controls_shown() {
+            self.save_touch_layout();
             self.touch.editing = false;
         }
         match touch.phase {
@@ -1013,6 +1059,15 @@ impl Game<'_> {
                     self.pad.injected.left = [0.0, 0.0];
                 }
                 Some(Finger::Press(button, _)) => self.pad.injected.set(button, false),
+                Some(Finger::Drag(..)) => {
+                    // The editor dragged a control into place: write it now, so
+                    // a back gesture or a kill from the app switcher keeps it.
+                    if self.touch.dirty {
+                        self.touch.layout.preset = Preset::Custom;
+                        self.touch.dirty = false;
+                        self.touch.layout.save();
+                    }
+                }
                 Some(Finger::Trigger { i, since, .. }) if since.elapsed().as_millis() < HOLD_MS => {
                     // A short tap: keep it down a few frames so a tick sees
                     // one hit (or one use).
