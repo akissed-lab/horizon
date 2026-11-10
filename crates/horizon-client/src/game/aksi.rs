@@ -76,7 +76,7 @@ fn layout(w: f32, h: f32) -> Layout {
     }
 }
 
-fn accent(index: u8) -> (u8, u8, u8) {
+pub(super) fn accent(index: u8) -> (u8, u8, u8) {
     let (rgb, _) = ACCENTS[(index as usize).min(ACCENTS.len() - 1)];
     (
         ((rgb >> 16) & 0xff) as u8,
@@ -84,17 +84,17 @@ fn accent(index: u8) -> (u8, u8, u8) {
         (rgb & 0xff) as u8,
     )
 }
-fn accent_solid(index: u8) -> u32 {
+pub(super) fn accent_solid(index: u8) -> u32 {
     let (r, g, b) = accent(index);
     rgba(r, g, b, 255)
 }
-fn accent_soft(index: u8, alpha: u8) -> u32 {
+pub(super) fn accent_soft(index: u8, alpha: u8) -> u32 {
     let (r, g, b) = accent(index);
     rgba(r, g, b, alpha)
 }
 
 /// A one-colour frame around `r`, `t` GUI pixels thick.
-fn outline(batch: &mut HudBatch, atlas: &HudAtlas, r: [f32; 4], t: f32, color: u32) {
+pub(super) fn outline(batch: &mut HudBatch, atlas: &HudAtlas, r: [f32; 4], t: f32, color: u32) {
     let [x, y, w, h] = r;
     batch.fill(atlas, x - t, y - t, w + t * 2.0, t, color);
     batch.fill(atlas, x - t, y + h, w + t * 2.0, t, color);
@@ -144,7 +144,7 @@ pub(super) fn draw_pill(
 }
 
 /// The preset whose values the settings already have, if any.
-fn active_preset(settings: &Settings) -> Option<usize> {
+pub(super) fn active_preset(settings: &Settings) -> Option<usize> {
     MEMORY.iter().position(|p| {
         settings.render_distance == p.render_distance
             && settings.simulation_distance == p.simulation_distance
@@ -201,6 +201,11 @@ impl Game<'_> {
             self.audio.play_button_click();
             return Ok(());
         }
+        if ui::hovered(cursor, p.ely[0], p.ely[1], p.ely[2], p.ely[3]) {
+            self.open_ely(false);
+            self.audio.play_button_click();
+            return Ok(());
+        }
         if ui::hovered(cursor, p.done[0], p.done[1], p.done[2], p.done[3]) {
             self.close_aksi();
             self.audio.play_button_click();
@@ -209,7 +214,7 @@ impl Game<'_> {
     }
 
     /// Sets the settings a memory preset names, saves them and applies them.
-    fn apply_memory_preset(&mut self, index: usize) {
+    pub(super) fn apply_memory_preset(&mut self, index: usize) {
         let Some(p) = MEMORY.get(index).copied() else {
             return;
         };
@@ -230,6 +235,8 @@ impl Game<'_> {
     }
 
     pub(super) fn draw_aksi(&mut self, batch: &mut HudBatch) {
+        // The Ely.by button shows the account Home cached.
+        self.home.refresh();
         let atlas = &self.gui.atlas;
         let (w, h) = (batch.width, batch.height);
         let p = layout(w, h);
@@ -357,17 +364,17 @@ impl Game<'_> {
             );
         }
 
-        // Ely.by arrives with the login screen in 0.5.0.
+        // The Ely.by door: it shows the account Home cached.
+        let ely_label = match &self.home.account {
+            Some(account) => Text::translate(
+                "horizon.aksi.ely.signed",
+                &[Text::literal(account.name.clone())],
+            ),
+            None => Text::translate("horizon.aksi.ely", &[]),
+        };
+        let ely_hover = ui::hovered(self.cursor, p.ely[0], p.ely[1], p.ely[2], p.ely[3]);
         ui::button(
-            batch,
-            atlas,
-            p.ely[0],
-            p.ely[1],
-            p.ely[2],
-            p.ely[3],
-            &Text::translate("horizon.aksi.ely", &[]),
-            false,
-            false,
+            batch, atlas, p.ely[0], p.ely[1], p.ely[2], p.ely[3], &ely_label, true, ely_hover,
         );
 
         let graphics_hover = ui::hovered(

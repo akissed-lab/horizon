@@ -858,6 +858,7 @@ impl Game<'_> {
     /// fields, the LAN port.
     pub(super) fn pad_typing(&self) -> bool {
         (self.screen == Screen::Chat && self.title.is_none())
+            || self.screen == Screen::Ely
             || self.sign_edit.is_some()
             || matches!(self.book, Some(super::books::BookScreen::Edit { .. }))
             || (self.screen == Screen::Creative && self.creative_screen.tab().search)
@@ -919,7 +920,13 @@ impl Game<'_> {
             }
         };
         let backspace = key == Some(KeyCode::Backspace);
-        if self.screen == Screen::Chat && self.title.is_none() {
+        if self.screen == Screen::Ely {
+            match text {
+                Some(t) => self.ely_text(t),
+                None if backspace => self.ely_backspace(),
+                None => self.ely_submit(),
+            }
+        } else if self.screen == Screen::Chat && self.title.is_none() {
             match text {
                 Some(t) => self.chat_type(t),
                 None => self.chat_key_code(key.expect("a key"), None),

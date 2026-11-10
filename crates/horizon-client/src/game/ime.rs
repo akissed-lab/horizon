@@ -21,6 +21,7 @@ impl Game<'_> {
             return true;
         }
         match self.screen {
+            Screen::Ely => true,
             Screen::Chat | Screen::CommandBlock => true,
             Screen::WorldOptions => self.world_options_typing(),
             Screen::Creative => self.creative_screen.tab().search,
@@ -89,6 +90,18 @@ impl Game<'_> {
     /// Text the input method committed (`WindowEvent::Ime(Commit)`).
     pub(super) fn ime_commit(&mut self, text: &str) {
         preedit::set_preedit(None);
+        if self.screen == Screen::Ely {
+            // The soft keyboard's Return arrives as a committed "\n": sign in.
+            if text.contains('\n') || text.contains('\r') {
+                self.ely_submit();
+                return;
+            }
+            let text: String = text.chars().filter(|c| !c.is_control()).collect();
+            if !text.is_empty() {
+                self.ely_text(&text);
+            }
+            return;
+        }
         let text: String = text.chars().filter(|c| !c.is_control()).collect();
         if text.is_empty() || !self.text_field_focused() {
             return;

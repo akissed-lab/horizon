@@ -24,7 +24,8 @@ impl Screen {
             | Self::ServerLinks
             | Self::ConfirmLink
             | Self::DialogWarning
-            | Self::Aksi => true,
+            | Self::Aksi
+            | Self::Ely => true,
             Self::Playing
             | Self::GameModeSwitcher
             | Self::Chat
@@ -32,7 +33,8 @@ impl Screen {
             | Self::Inventory
             | Self::Dead
             | Self::CommandBlock
-            | Self::BlockEditor => false,
+            | Self::BlockEditor
+            | Self::Home => false,
             // WinScreen.extractBackground: the poem fills the screen with the End portal, the
             // credits alone blur. Game::menu_blur knows which one rolls.
             Self::Win => false,
@@ -536,6 +538,7 @@ mod tests {
         for screen in [
             Screen::Options,
             Screen::Aksi,
+            Screen::Ely,
             Screen::Stats,
             Screen::Advancements,
             Screen::WorldOptions,
@@ -555,6 +558,7 @@ mod tests {
             Screen::CommandBlock,
             Screen::BlockEditor,
             Screen::Win,
+            Screen::Home,
         ] {
             assert!(!screen.blurs_background(true));
             assert!(!screen.blurs_background(false));

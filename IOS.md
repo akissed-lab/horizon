@@ -6,14 +6,13 @@ home screen (the bundle and the `.ipa` keep the name `Horizon`). There is no Xco
 `main.rs`, and `packaging/ios/build_ipa.sh` links it against `packaging/ios/main.m`. Rendering is
 wgpu on Metal, sound is cpal on CoreAudio, and input is winit's UIKit backend.
 
-**Status: the Rust side compiles for `aarch64-apple-ios`, and the macOS workflow builds, ad-hoc
-signs and packages `Horizon.ipa` (the CI run is green); it has not been run on a phone yet.** Treat
-it as an experiment. Logs are in `Documents/Horizon/logs/latest.log` and crashes in
-`Documents/Horizon/crash-reports/`, both readable in the Files app.
+**Status: experimental.** The macOS workflow builds, ad-hoc signs and packages `Horizon.ipa`, and
+the app runs on a phone; treat it as an experiment. Logs are in `Documents/Horizon/logs/latest.log`
+and crashes in `Documents/Horizon/crash-reports/`, both readable in the Files app.
 
 Unlike the Android build there is **no in-app game-file downloader** and **no Microsoft login**:
 the game files are prepared on a PC and copied to the phone once (see "Game files"), and the app
-starts straight into the title screen.
+starts at the **Aksi Home** menu — Play, Settings and Account, with the Ely.by sign-in door.
 
 ## Requirements
 
@@ -112,6 +111,10 @@ Documents/Horizon/
   saves/                # worlds; copy existing ones here
   resourcepacks/
   shaderpacks/
+  horizon-account.txt   # Ely.by name and UUID, for the Account tab
+  horizon-player.txt    # the nickname the game joins with
+  horizon-skin.png      # the Ely.by skin, if one is set
+  horizon-skin.txt      # "model:slim" or "model:classic"
   logs/latest.log
   crash-reports/
 ```
@@ -144,20 +147,21 @@ a swipe up from the bottom or down from the top only shows a hint the first time
 deliberate swipe, so a stray finger no longer sends the game Home or opens Control Center. That is the
 same protection games get from Guided Access, without turning it on.
 
-**There is no on-screen keyboard yet.** Chat, commands, signs, anvils, the server-address field
-and search boxes cannot be typed into without a hardware keyboard. This is the largest v1
-limitation and the first thing to fix with a UIKit text-input bridge (the Android build uses a
-JNI bridge, `game/android_ime.rs`).
+**On-screen keyboard.** Tapping a text field — chat, a command, a sign, an anvil, the server
+address, a search box, or the Ely.by nickname and password — switches winit's input method on
+(`set_ime_allowed`), which makes the view first responder and shows the iOS keyboard. The candidate
+window follows the caret (`set_ime_cursor_area`), committed text goes through the same sinks as a
+hardware keyboard, and Return in the Ely.by fields submits the form. Closing the field hides the
+keyboard again. A Bluetooth or USB keyboard still works the same way.
 
 ## Known limitations
 
-- **Never run on a device.** Expect crashes, a black screen or an early exit; the log is the
-  first place to look.
+- **Experimental:** it runs on a phone, but expect crashes, a black screen or an early exit; the
+  log is the first place to look.
 - **Memory:** about 2.2 GB. Use a 6 GB+ device, and set render distance to 4–6. A 4 GB phone will
   usually be killed when a world loads.
-- **No Microsoft login:** v1 plays local worlds and offline-mode servers. Online-mode servers
-  need the session join flow, which is not wired up.
-- **No soft keyboard** (see above).
+- **No Microsoft login:** v1 plays local worlds, offline-mode servers and Ely.by accounts. Online-mode
+  servers need the session join flow, which is not wired up.
 - **No in-app file downloader:** game files come from a PC (see "Game files").
 - **Clipboard:** the game keeps an in-memory clipboard; copying to or pasting from other apps is
   not connected (arboard has no iOS backend here).

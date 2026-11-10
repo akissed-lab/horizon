@@ -683,6 +683,22 @@ impl Title {
             }
         };
     }
+    /// The Aksi Home menu's "New world": Create New World, whose Cancel goes
+    /// back to the main menu (which Home replaces on iOS).
+    pub fn begin_create(&mut self) {
+        self.create_return_to_main = true;
+        self.mode = Self::new_world();
+    }
+    /// The Aksi Home menu's "Multiplayer": straight to the server list, past
+    /// the safety screen that `options.txt` already remembers.
+    pub fn open_multiplayer(&mut self) {
+        self.mode = Mode::Multiplayer(crate::multiplayer::Screen::list(&self.saves));
+    }
+    /// Whether the vanilla main menu is showing (the Aksi Home menu takes its
+    /// place on iOS).
+    pub fn is_main(&self) -> bool {
+        matches!(self.mode, Mode::Main)
+    }
     pub(crate) fn new_world() -> Mode {
         Mode::Create {
             name: lang::get_or("selectWorld.newWorld", "New World"),

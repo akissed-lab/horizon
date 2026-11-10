@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/akissed-lab/horizon/releases/latest"><img src="https://img.shields.io/github/v/release/akissed-lab/horizon?label=release" alt="Latest release"></a>
   <a href="https://github.com/akissed-lab/horizon/releases"><img src="https://img.shields.io/github/downloads/akissed-lab/horizon/total" alt="Downloads"></a>
-  <img src="https://img.shields.io/badge/version-0.4.0-8B5CF6" alt="Version 0.4.0">
+  <img src="https://img.shields.io/badge/version-0.5.0-8B5CF6" alt="Version 0.5.0">
   <img src="https://img.shields.io/badge/iOS-15%2B%20arm64-000000?logo=apple&logoColor=white" alt="iOS 15+">
   <img src="https://img.shields.io/badge/Minecraft-Java%2026.3-5D9C3F" alt="Minecraft Java 26.3">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/akissed-lab/horizon" alt="License"></a>
@@ -47,7 +47,12 @@ Horizon. Спасибо им. Порт для iOS и оформление Aksi �
 
 - Нативная игра на Rust, без Java и эмуляции; рендер через Metal.
 - Сенсорное управление: джойстик движения, обзор перетаскиванием, прыжок/присед, хотбар,
-  инвентарь, пауза и чат.
+  инвентарь, пауза и чат. В полях ввода открывается системная клавиатура iOS.
+- **Aksi Home** при запуске: вкладки «Играть», «Настройки» и «Аккаунт», стеклянные панели,
+  продолжение последнего мира и кнопка «Играть». Отсюда же открываются все миры, новый мир и
+  сетевая игра.
+- Вход **Ely.by** по нику и паролю: ник и скин подтягиваются с сервера, пароль нигде не
+  сохраняется.
 - Экран **Aksi**: цвет акцента и пресеты памяти (Экономно / Обычно / Максимум), чтобы игра
   стабильнее шла на телефоне. Открывается кнопкой **Aksi** в левом верхнем углу меню паузы.
 - Полноэкранный ландшафтный режим; системные свайпы с краёв не срабатывают случайно.
@@ -76,16 +81,14 @@ cargo run --release -p horizon-prepare -- sounds    # необязательно
 ```
 
 Затем скопируйте **содержимое** папки `.local/horizon-client/26.3/` (не саму папку) в
-`Documents/Horizon/resources/` — через Finder или приложение Files. Приложение стартует сразу в игру
-и не скачивает файлы само.
+`Documents/Horizon/resources/` — через Finder или приложение Files. Приложение стартует в меню
+Aksi Home и не скачивает файлы само.
 
 Подробности и структура папок: [IOS.md](IOS.md).
 
 ### Ограничения
 
-- **Нет экранной клавиатуры.** Чат, команды, таблички и поля ввода требуют аппаратной клавиатуры;
-  мост UIKit и вход через Ely.by — в 0.5.0.
-- **Нет входа Microsoft.** Пока доступны локальные миры и офлайн-серверы.
+- **Нет входа Microsoft.** Пока доступны локальные миры, офлайн-серверы и аккаунт **Ely.by**.
 - **Память.** Игра занимает около 2.2 ГБ; на 4 ГБ телефоне iOS обычно закрывает её при загрузке
   мира. Рекомендуется 6 ГБ ОЗУ и дальность прорисовки 4–6 (пресет «Экономно»).
 - Моды, HDR и контроллеры не поддерживаются; буфер обмена общий только внутри игры.
@@ -126,6 +129,11 @@ in [IOS.md](IOS.md).
 
 - A native Rust game, no Java or emulation; Metal rendering.
 - Touch controls: movement joystick, look by dragging, jump/sneak, hotbar, inventory, pause and chat.
+  Text fields open the iOS system keyboard.
+- **Aksi Home** at launch: Play, Settings and Account tabs, glass panels, a Continue card for the
+  last world and a Play button. All worlds, a new world and multiplayer open from here too.
+- **Ely.by** sign-in with a nickname and password: the nickname and skin come from the server, and
+  the password is never stored.
 - The **Aksi** screen: an accent colour and memory presets (Economy / Normal / Maximum) to keep the
   game stable on a phone. Open it with the **Aksi** button in the pause menu's top-left corner.
 - Fullscreen landscape; a swipe from a screen edge no longer leaves the game by accident.
@@ -154,16 +162,14 @@ cargo run --release -p horizon-prepare -- sounds    # optional
 ```
 
 Copy the **contents** of `.local/horizon-client/26.3/` (not the folder itself) into
-`Documents/Horizon/resources/` through Finder or the Files app. The app starts straight into the
-game and never downloads game files itself.
+`Documents/Horizon/resources/` through Finder or the Files app. The app starts at the Aksi Home
+menu and never downloads game files itself.
 
 Folder layout and details: [IOS.md](IOS.md).
 
 ### Limitations
 
-- **No on-screen keyboard.** Chat, commands, signs and text fields need a hardware keyboard; a UIKit
-  bridge and Ely.by sign-in arrive in 0.5.0.
-- **No Microsoft login.** Local worlds and offline-mode servers only.
+- **No Microsoft login.** Local worlds, offline-mode servers and **Ely.by** accounts only.
 - **Memory.** The game takes about 2.2 GB; on a 4 GB phone iOS usually kills it while a world loads.
   6 GB of RAM and a render distance of 4–6 (the "Economy" preset) are recommended.
 - Mods, HDR and controllers are unsupported; the clipboard is in-game only.

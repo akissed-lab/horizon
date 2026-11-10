@@ -98,6 +98,7 @@ mod dispense_fixture;
 mod dispenser;
 mod dragon;
 mod dynamic_lights;
+mod ely;
 mod enchant_effects;
 mod end;
 mod entity_culling;
@@ -121,6 +122,7 @@ mod glowing;
 mod golems;
 mod growth;
 mod hand;
+mod home;
 mod ime;
 mod initial_spawn;
 mod integrated;
@@ -725,6 +727,11 @@ enum Screen {
     /// Aksi: the branding, accent colour and memory presets the iOS port
     /// opens from the pause menu (game/aksi.rs).
     Aksi,
+    /// Aksi Home: the branded menu the iOS port opens before a world
+    /// (game/home.rs).
+    Home,
+    /// The Ely.by sign-in screen (game/ely.rs), over Home or Aksi.
+    Ely,
 }
 struct Mining {
     pos: [i32; 3],
@@ -2415,6 +2422,10 @@ struct Game<'a> {
     pause_menu: bool,
     /// The Aksi menu's state (game/aksi.rs).
     aksi: aksi::AksiMenu,
+    /// The Aksi Home menu's state (game/home.rs).
+    home: home::HomeMenu,
+    /// The Ely.by sign-in screen's state (game/ely.rs).
+    ely: ely::ElyMenu,
     /// MultiPlayerGameMode.previousLocalPlayerMode (F3+N goes back to it).
     previous_mode: Option<horizon_client::command::args::GameMode>,
     gamemode_switcher: Option<horizon_client::game_mode_switcher::GameModeSwitcher>,
@@ -6826,6 +6837,7 @@ impl Game<'_> {
                 self.screen,
                 Screen::Paused
                     | Screen::Aksi
+                    | Screen::Ely
                     | Screen::Options
                     | Screen::Stats
                     | Screen::Advancements
@@ -6837,6 +6849,11 @@ impl Game<'_> {
                     | Screen::CommandBlock
             ) || self.book.is_some()
                 || self.win_screen_pauses())
+    }
+    /// Whether the frame's world is the one on screen: Home, and the Ely.by
+    /// screen before a world opened, keep the empty world out of the frame.
+    fn world_on_screen(&self) -> bool {
+        self.screen != Screen::Home && !(self.screen == Screen::Ely && self.player.is_none())
     }
     /// A screen open over gameplay while `screen` stays `Playing`: a book or
     /// lectern, a sign, a server dialog, the code of conduct, a link or
@@ -7206,6 +7223,25 @@ impl Game<'_> {
             self.draw_options(&mut batch);
             return batch;
         }
+        // Aksi Home: its own glass panel over the title panorama.
+        if self.screen == Screen::Home && self.title.is_none() {
+            self.draw_home(&mut batch);
+            self.draw_toasts(&mut batch, false);
+            return batch;
+        }
+        // The Ely.by panel draws over Home, or over the world and Aksi.
+        if self.screen == Screen::Ely {
+            if self.ely.from_home && self.title.is_none() {
+                self.draw_home(&mut batch);
+            } else if self.player.is_some() && self.title.is_none() {
+                self.draw_aksi(&mut batch);
+            } else {
+                batch.fill(&self.gui.atlas, 0.0, 0.0, w, h, rgba(8, 7, 14, 140));
+            }
+            self.draw_ely(&mut batch);
+            self.draw_toasts(&mut batch, false);
+            return batch;
+        }
         if let Some(title) = &mut self.title {
             title.poll_backup();
             if std::mem::take(&mut title.onboarding_finished) {
@@ -7507,6 +7543,8 @@ impl Game<'_> {
             }
             Screen::Chat => self.draw_chat_screen(&mut batch),
             Screen::Aksi => self.draw_aksi(&mut batch),
+            // Home and Ely draw before the title block, above.
+            Screen::Home | Screen::Ely => {}
             Screen::Playing | Screen::Options | Screen::Win => {}
         }
         self.draw_saving_indicator(&mut batch);
@@ -10977,6 +11015,11 @@ impl Game<'_> {
         if let Some(r) = self.renderer.as_mut() {
             r.clear_sections(self.world.layout());
         }
+        if cfg!(target_os = "ios") {
+            // Aksi Home replaces the title after a world closes.
+            self.open_home();
+            return Ok(());
+        }
         self.title = Some(
             Title::new(
                 std::env::current_dir()?.join("saves"),
@@ -13561,6 +13604,9 @@ impl Game<'_> {
         self.flush_ime(&mut hud);
         // LevelLoadingScreen (Reason.OTHER) draws the title's panorama.
         let title = self.title.is_some()
+            || (self.title.is_none()
+                && (self.screen == Screen::Home
+                    || (self.screen == Screen::Ely && self.ely.from_home)))
             || self.loading_reason() == Some(horizon_client::level_loading::Reason::Other)
             || self.remote_loading();
         let (yaw, pitch) = if title {
@@ -14013,6 +14059,9 @@ impl Game<'_> {
                 Screen::BlockEditor => self.close_block_editor(),
                 Screen::Chat => self.close_chat(chat::ChatExit::Intentional),
                 Screen::Aksi => self.close_aksi(),
+                Screen::Ely => self.close_ely(),
+                // Home is the app's root: Escape has nowhere to go.
+                Screen::Home => {}
                 Screen::Win => self.close_win_screen()?,
             },
             KeyCode::Digit1
@@ -15164,6 +15213,12 @@ impl ApplicationHandler for Game<'_> {
                         Screen::Aksi if pressed && button == MouseButton::Left => {
                             self.aksi_click()?
                         }
+                        Screen::Home if pressed && button == MouseButton::Left => {
+                            self.home_click()?
+                        }
+                        Screen::Ely if pressed && button == MouseButton::Left => {
+                            self.ely_click()?
+                        }
                         Screen::WorldOptions if pressed && button == MouseButton::Left => {
                             self.world_options_click()
                         }
@@ -15357,6 +15412,13 @@ impl ApplicationHandler for Game<'_> {
                         self.options_key(key, event.text.as_deref())?;
                     }
                 }
+                WindowEvent::KeyboardInput { event, .. } if self.screen == Screen::Ely => {
+                    self.ely_key(&event)
+                }
+                WindowEvent::KeyboardInput { .. } if self.screen == Screen::Home => {
+                    // Home is pointer-driven: no key may reach the world (there
+                    // is none) or a screen behind it.
+                }
                 WindowEvent::KeyboardInput { event, .. } if self.title.is_some() => {
                     if event.state == ElementState::Pressed {
                         if let Some(shortcut) = self.edit_shortcut(&event) {
@@ -15492,7 +15554,7 @@ impl ApplicationHandler for Game<'_> {
                             );
                         }
                     }
-                    if self.title.is_none() {
+                    if self.title.is_none() && self.world_on_screen() {
                         horizon_client::spans::time("update_world", || self.update_world());
                         horizon_client::spans::time("spawn_player", || self.spawn_player())?;
                     }
@@ -15514,7 +15576,7 @@ impl ApplicationHandler for Game<'_> {
                             break;
                         }
                         let started = Instant::now();
-                        if self.title.is_none() && !self.pause {
+                        if self.title.is_none() && self.world_on_screen() && !self.pause {
                             let tick = Instant::now();
                             horizon_client::spans::time("tick", || self.tick())?;
                             // In single player the tick is the integrated server's.
@@ -15733,6 +15795,8 @@ impl ApplicationHandler for Game<'_> {
         if self.pending_save.is_some() {
             return;
         }
+        self.normalize_title_to_home();
+        self.poll_ely();
         self.touch_frame();
         #[cfg(target_os = "android")]
         self.android_input_frame(event_loop);
@@ -16202,6 +16266,8 @@ impl<'a> Game<'a> {
             show_chunk_borders: false,
             pause_menu: true,
             aksi: aksi::AksiMenu::default(),
+            home: home::HomeMenu::default(),
+            ely: ely::ElyMenu::default(),
             previous_mode: None,
             gamemode_switcher: None,
             clipboard: Default::default(),
@@ -17488,8 +17554,14 @@ fn start_game<'a>(
             // Gui.addInitialScreens: the accessibility onboarding comes first.
             if game.settings.file.bool("onboardAccessibility") {
                 title.start_onboarding();
+                game.title = Some(title);
+            } else if cfg!(target_os = "ios") {
+                // Aksi Home takes the title's place; it builds its own Title
+                // when a door (all worlds, new world, multiplayer) opens one.
+                game.open_home();
+            } else {
+                game.title = Some(title);
             }
-            game.title = Some(title);
         }
     }
     if std::env::var_os("HORIZON_COMMAND_SCRIPT").is_some()

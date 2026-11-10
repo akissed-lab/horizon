@@ -584,7 +584,7 @@ impl Game<'_> {
     /// A text box has focus (the soft keyboard is wanted).
     fn touch_text_focused(&self) -> bool {
         use super::Screen;
-        matches!(self.screen, Screen::Chat | Screen::CommandBlock)
+        matches!(self.screen, Screen::Chat | Screen::CommandBlock | Screen::Ely)
             || self.sign_edit.is_some()
             || self.book.is_some()
             || (self.screen == Screen::Creative && self.creative_screen.tab().search)

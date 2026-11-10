@@ -866,6 +866,12 @@ impl Game<'_> {
         if let Some(r) = self.renderer.as_mut() {
             r.clear_sections(self.world.layout());
         }
+        if cfg!(target_os = "ios") && reason.is_none() {
+            // Aksi Home replaces the title after a world closes; a disconnect
+            // (reason Some) still shows the Disconnected screen.
+            self.open_home();
+            return Ok(());
+        }
         let saves = std::env::current_dir()?.join("saves");
         let mut title = horizon_client::title::Title::new(saves.clone(), &self.options.resources)
             .with_user(|| self.options.player_name());

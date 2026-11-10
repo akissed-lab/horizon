@@ -915,6 +915,8 @@ impl Game<'_> {
             Screen::BlockEditor => "block-editor",
             Screen::Win => "win",
             Screen::Aksi => "aksi",
+            Screen::Home => "home",
+            Screen::Ely => "ely",
         }
     }
 

@@ -278,8 +278,11 @@ impl Game<'_> {
                     self.settings.save(&Self::options_path());
                     let to_game = std::mem::take(&mut self.options_to_game);
                     let to_aksi = std::mem::take(&mut self.aksi.options_return);
+                    let to_home = std::mem::take(&mut self.home.options_return);
                     self.screen = if std::mem::take(&mut self.options_to_world_options) {
                         Screen::WorldOptions
+                    } else if to_home {
+                        Screen::Home
                     } else if to_aksi {
                         Screen::Aksi
                     } else if self.options_from_title || to_game {
