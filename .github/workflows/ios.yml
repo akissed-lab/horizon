@@ -26,10 +26,11 @@ concurrency:
 
 jobs:
   ipa:
-    # macos-14 is retired (its label now resolves to an arm64 configuration
-    # that some accounts cannot use); macos-15 has Xcode's iOS SDK. Either
-    # architecture cross-builds aarch64-apple-ios fine.
-    runs-on: macos-15
+    # macos-15 (arm64) is often short on capacity and cancels queued jobs after
+    # about 15 minutes; macos-15-intel has the same Xcode iOS SDK, and either
+    # architecture cross-builds aarch64-apple-ios fine. Switch back to
+    # macos-15 if Intel build times become a problem.
+    runs-on: macos-15-intel
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
