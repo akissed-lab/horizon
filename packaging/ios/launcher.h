@@ -40,6 +40,8 @@ UIColor *AksiTextColor(void);
 UIColor *AksiDimColor(void);
 void AksiStylePanel(UIView *view);
 UILabel *AksiMakeLabel(NSString *text, UIFont *font, UIColor *color);
+/// A small dimmed all-caps heading above a group of rows.
+UILabel *AksiSectionLabel(NSString *text);
 UIButton *AksiMakeButton(NSString *title, BOOL prominent);
 void AksiStyleButton(UIButton *button, BOOL prominent);
 UITextField *AksiMakeField(NSString *placeholder);

@@ -255,7 +255,7 @@ UILabel *AksiMakeLabel(NSString *text, UIFont *font, UIColor *color) {
     return label;
 }
 
-static UILabel *AksiSectionLabel(NSString *text) {
+UILabel *AksiSectionLabel(NSString *text) {
     UILabel *label = AksiMakeLabel(text,
                                    [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold],
                                    AksiDimColor());
