@@ -224,30 +224,6 @@ pub(super) fn write_account(account: &HomeAccount) -> std::io::Result<()> {
 }
 
 impl Game<'_> {
-    /// Show Home, with no `Title` under it: the panorama comes from `render`.
-    pub(super) fn open_home(&mut self) {
-        self.title = None;
-        self.screen = Screen::Home;
-        self.capture(false);
-    }
-
-    /// iOS: vanilla's main menu becomes Aksi Home. Loading screens keep a
-    /// Main-mode `Title` (`defer_world_entry` makes one), so they are left
-    /// alone until the world has opened.
-    pub(super) fn normalize_title_to_home(&mut self) {
-        if !cfg!(target_os = "ios")
-            || self.screen != Screen::Playing
-            || self.pending_entry.is_some()
-            || self.world_loader.is_some()
-            || self.rest_loader.is_some()
-        {
-            return;
-        }
-        if self.title.as_ref().is_some_and(Title::is_main) {
-            self.open_home();
-        }
-    }
-
     /// A fresh `Title` with the settings the title screens expect (the last
     /// server and the multiplayer warning), as the startup path builds it.
     pub(super) fn new_title(&mut self) -> Result<Title> {

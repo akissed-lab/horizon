@@ -127,6 +127,8 @@ mod ime;
 mod initial_spawn;
 mod integrated;
 mod interactions;
+#[cfg(target_os = "ios")]
+mod ios_launcher;
 mod item_draw;
 mod item_particles;
 mod jigsaw_blocks;
@@ -11015,23 +11017,27 @@ impl Game<'_> {
         if let Some(r) = self.renderer.as_mut() {
             r.clear_sections(self.world.layout());
         }
-        if cfg!(target_os = "ios") {
-            // Aksi Home replaces the title after a world closes.
-            self.open_home();
+        #[cfg(target_os = "ios")]
+        {
+            // The native launcher replaces the title after a world closes.
+            ios_launcher::present();
             return Ok(());
         }
-        self.title = Some(
-            Title::new(
-                std::env::current_dir()?.join("saves"),
-                &self.options.resources,
-            )
-            .with_user(|| self.options.player_name()),
-        );
-        if let Some(title) = &mut self.title {
-            title.last_server = self.settings.file.string("lastServer");
-            title.skip_multiplayer_warning = self.settings.file.bool("skipMultiplayerWarning");
+        #[cfg(not(target_os = "ios"))]
+        {
+            self.title = Some(
+                Title::new(
+                    std::env::current_dir()?.join("saves"),
+                    &self.options.resources,
+                )
+                .with_user(|| self.options.player_name()),
+            );
+            if let Some(title) = &mut self.title {
+                title.last_server = self.settings.file.string("lastServer");
+                title.skip_multiplayer_warning = self.settings.file.bool("skipMultiplayerWarning");
+            }
+            self.capture(false);
         }
-        self.capture(false);
         Ok(())
     }
     /// Let go of every entity of the level (saved first): the next world
@@ -15748,6 +15754,13 @@ impl ApplicationHandler for Game<'_> {
         }
     }
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        #[cfg(target_os = "ios")]
+        if ios_launcher::launcher_shown() {
+            // The native launcher covers the game while it picks another
+            // world: nothing to tick or draw until its Play button queues one.
+            event_loop.set_control_flow(ControlFlow::Wait);
+            return;
+        }
         if horizon_threads::stop_requests() > 0
             && self.pending_save.as_ref().is_none_or(|save| !save.quit)
         {
@@ -15795,7 +15808,6 @@ impl ApplicationHandler for Game<'_> {
         if self.pending_save.is_some() {
             return;
         }
-        self.normalize_title_to_home();
         self.poll_ely();
         self.touch_frame();
         #[cfg(target_os = "android")]
@@ -17555,10 +17567,6 @@ fn start_game<'a>(
             if game.settings.file.bool("onboardAccessibility") {
                 title.start_onboarding();
                 game.title = Some(title);
-            } else if cfg!(target_os = "ios") {
-                // Aksi Home takes the title's place; it builds its own Title
-                // when a door (all worlds, new world, multiplayer) opens one.
-                game.open_home();
             } else {
                 game.title = Some(title);
             }
@@ -17977,6 +17985,12 @@ impl Loading {
         game.fullscreen = self.fullscreen;
         game.panorama_rotation = self.panorama_rotation;
         self.menu.handoff(&mut game);
+        #[cfg(target_os = "ios")]
+        if let Some(launch) = ios_launcher::take_launch() {
+            if let Err(error) = ios_launcher::apply(&mut game, launch) {
+                log::error!("Horizon: the launcher's world could not start: {error}");
+            }
+        }
         game.apply_settings();
         game.previous = Instant::now();
         log::info!(
@@ -18018,6 +18032,22 @@ impl ApplicationHandler for App {
         if let App::Ready(game) = self {
             game.device_event(event_loop, id, event);
         }
+    }
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, _event: ()) {
+        // iOS only: the native launcher's Play button writes its choice and
+        // wakes the loop through the proxy installed at startup.
+        #[cfg(target_os = "ios")]
+        if let App::Ready(game) = self {
+            ios_launcher::drain(game);
+            if let Some(window) = &game.window {
+                window.request_redraw();
+            }
+            if !ios_launcher::launcher_shown() {
+                event_loop.set_control_flow(ControlFlow::Poll);
+            }
+        }
+        #[cfg(not(target_os = "ios"))]
+        let _ = event_loop;
     }
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         enum Step {
@@ -18123,28 +18153,43 @@ fn run_loading(
         error: None,
         touch_finger: None,
     };
-    let mut app = App::Loading(Box::new(loading));
-    let result = new_event_loop()?.run_app(&mut app);
-    match &mut app {
-        App::Ready(game) => leave_fullscreen_after(&result, &mut game.settings),
-        App::Loading(loading) => leave_fullscreen_after(&result, &mut loading.settings),
+    let event_loop = new_event_loop()?;
+    #[cfg(target_os = "ios")]
+    {
+        ios_launcher::install_proxy(event_loop.create_proxy());
+        // winit's iOS backend joins the UIApplication the native launcher
+        // started, and `run_app` returns while the run loop keeps calling into
+        // the handler. The `App` must therefore outlive this stack frame.
+        let app: &'static mut App = Box::leak(Box::new(App::Loading(Box::new(loading))));
+        return event_loop.run_app(app).map_err(|error| -> Box<dyn std::error::Error> {
+            Box::new(error)
+        });
     }
-    result?;
-    horizon_client::discord_presence::stop();
-    match app {
-        App::Ready(mut game) => {
-            write_report(&game)?;
-            if let Some(e) = game.error.take() {
-                return Err(e);
+    #[cfg(not(target_os = "ios"))]
+    {
+        let mut app = App::Loading(Box::new(loading));
+        let result = event_loop.run_app(&mut app);
+        match &mut app {
+            App::Ready(game) => leave_fullscreen_after(&result, &mut game.settings),
+            App::Loading(loading) => leave_fullscreen_after(&result, &mut loading.settings),
+        }
+        result?;
+        horizon_client::discord_presence::stop();
+        match app {
+            App::Ready(mut game) => {
+                write_report(&game)?;
+                if let Some(e) = game.error.take() {
+                    return Err(e);
+                }
+            }
+            App::Loading(loading) => {
+                if let Some(e) = loading.error {
+                    return Err(e);
+                }
             }
         }
-        App::Loading(loading) => {
-            if let Some(e) = loading.error {
-                return Err(e);
-            }
-        }
+        Ok(())
     }
-    Ok(())
 }
 
 // main.rs (the desktop bin) turns these into an exit code; the iOS entry point
@@ -18152,6 +18197,13 @@ fn run_loading(
 // for them.
 #[cfg_attr(target_os = "ios", allow(unused_imports))]
 pub use launch_api::{UsageError, exit_code};
+
+/// iOS: the native launcher's Play button, after the game has started. The
+/// launch file it wrote is queued here and applied on the game's main thread.
+#[cfg(target_os = "ios")]
+pub(crate) fn ios_launcher_action() {
+    ios_launcher::launch_action_from_launcher();
+}
 
 pub fn run() -> Result<()> {
     let Some(mut options) = Options::read()? else {
@@ -18201,7 +18253,10 @@ pub fn run() -> Result<()> {
             log::warn!("could not add the official server to servers.dat: {e}");
         }
     }
-    let early_settings = Settings::load(&std::env::current_dir()?.join("options.txt"));
+    #[allow(unused_mut)]
+    let mut early_settings = Settings::load(&std::env::current_dir()?.join("options.txt"));
+    #[cfg(target_os = "ios")]
+    ios_launcher::apply_launcher_settings(&mut early_settings);
     // "Playing Horizon" on Discord: never for a server; an automated run only talks to a test's fake Discord.
     if options.dedicated.is_none() {
         let automated = options.benchmark.is_some()

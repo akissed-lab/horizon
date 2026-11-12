@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/akissed-lab/horizon/releases/latest"><img src="https://img.shields.io/github/v/release/akissed-lab/horizon?label=release" alt="Latest release"></a>
   <a href="https://github.com/akissed-lab/horizon/releases"><img src="https://img.shields.io/github/downloads/akissed-lab/horizon/total" alt="Downloads"></a>
-  <img src="https://img.shields.io/badge/version-0.5.0-8B5CF6" alt="Version 0.5.0">
+  <img src="https://img.shields.io/badge/version-0.6.0-8B5CF6" alt="Version 0.6.0">
   <img src="https://img.shields.io/badge/iOS-15%2B%20arm64-000000?logo=apple&logoColor=white" alt="iOS 15+">
   <img src="https://img.shields.io/badge/Minecraft-Java%2026.3-5D9C3F" alt="Minecraft Java 26.3">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/akissed-lab/horizon" alt="License"></a>
@@ -48,13 +48,14 @@ Horizon. Спасибо им. Порт для iOS и оформление Aksi �
 - Нативная игра на Rust, без Java и эмуляции; рендер через Metal.
 - Сенсорное управление: джойстик движения, обзор перетаскиванием, прыжок/присед, хотбар,
   инвентарь, пауза и чат. В полях ввода открывается системная клавиатура iOS.
-- **Aksi Home** при запуске: вкладки «Играть», «Настройки» и «Аккаунт», стеклянные панели,
-  продолжение последнего мира и кнопка «Играть». Отсюда же открываются все миры, новый мир и
-  сетевая игра.
+- **Отдельный лаунчер Aksi до запуска движка**: «Продолжить», все миры, новый мир, сетевая
+  игра, настройки и аккаунт. Движок стартует только после нажатия «Играть»; когда мир закрывается,
+  лаунчер возвращается.
 - Вход **Ely.by** по нику и паролю: ник и скин подтягиваются с сервера, пароль нигде не
   сохраняется.
-- Экран **Aksi**: цвет акцента и пресеты памяти (Экономно / Обычно / Максимум), чтобы игра
-  стабильнее шла на телефоне. Открывается кнопкой **Aksi** в левом верхнем углу меню паузы.
+- Настройки в лаунчере: цвет акцента и пресеты памяти (Экономно / Обычно / Максимум), чтобы игра
+  стабильнее шла на телефоне. Те же настройки открываются кнопкой **Aksi** в меню паузы, а пресет
+  памяти применяется при входе в мир.
 - Полноэкранный ландшафтный режим; системные свайпы с краёв не срабатывают случайно.
 - Миры, ресурспаки и шейдерпаки как на ПК; сохранения можно копировать через Finder или Files.
 
@@ -81,8 +82,9 @@ cargo run --release -p horizon-prepare -- sounds    # необязательно
 ```
 
 Затем скопируйте **содержимое** папки `.local/horizon-client/26.3/` (не саму папку) в
-`Documents/Horizon/resources/` — через Finder или приложение Files. Приложение стартует в меню
-Aksi Home и не скачивает файлы само.
+`Documents/Horizon/resources/` — через Finder или приложение Files. Приложение стартует в лаунчере
+Aksi; пока ресурсов нет, кнопка «Играть» неактивна и лаунчер подсказывает, куда их положить.
+Файлы игры он не скачивает.
 
 Подробности и структура папок: [IOS.md](IOS.md).
 
@@ -130,12 +132,14 @@ in [IOS.md](IOS.md).
 - A native Rust game, no Java or emulation; Metal rendering.
 - Touch controls: movement joystick, look by dragging, jump/sneak, hotbar, inventory, pause and chat.
   Text fields open the iOS system keyboard.
-- **Aksi Home** at launch: Play, Settings and Account tabs, glass panels, a Continue card for the
-  last world and a Play button. All worlds, a new world and multiplayer open from here too.
+- A separate **Aksi launcher** before the engine starts: Continue, all worlds, a new world,
+  multiplayer, settings and the account. The engine starts only when Play is pressed, and the
+  launcher comes back when a world closes.
 - **Ely.by** sign-in with a nickname and password: the nickname and skin come from the server, and
   the password is never stored.
-- The **Aksi** screen: an accent colour and memory presets (Economy / Normal / Maximum) to keep the
-  game stable on a phone. Open it with the **Aksi** button in the pause menu's top-left corner.
+- Launcher settings: an accent colour and memory presets (Economy / Normal / Maximum) to keep the
+  game stable on a phone. The same settings open with the **Aksi** button in the pause menu, and the
+  memory preset is applied when a world opens.
 - Fullscreen landscape; a swipe from a screen edge no longer leaves the game by accident.
 - Worlds, resource packs and shader packs as on desktop; saves copy in and out through Finder or the
   Files app.
@@ -162,8 +166,9 @@ cargo run --release -p horizon-prepare -- sounds    # optional
 ```
 
 Copy the **contents** of `.local/horizon-client/26.3/` (not the folder itself) into
-`Documents/Horizon/resources/` through Finder or the Files app. The app starts at the Aksi Home
-menu and never downloads game files itself.
+`Documents/Horizon/resources/` through Finder or the Files app. The app starts in the Aksi launcher;
+until the files are there, Play stays disabled and the launcher says where they go. It never
+downloads game files itself.
 
 Folder layout and details: [IOS.md](IOS.md).
 

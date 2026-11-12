@@ -3,10 +3,12 @@
 //! compiles the same game; this file only replaces `main` with a C entry
 //! point that `packaging/ios/main.m` calls.
 //!
-//! winit's iOS backend calls `UIApplicationMain` itself, from
-//! `EventLoop::run_app`, and refuses to run once `UIApplication` exists. So
-//! nothing here may start UIKit first: `main.m` is a plain `main` that calls
-//! [`horizon_ios_main`] before any application object is created.
+//! The native launcher (`packaging/ios/launcher.m`) owns the screen before the
+//! engine starts. [`horizon_ios_main`] starts the game when its Play button is
+//! pressed: winit's iOS backend then joins the `UIApplication` the launcher
+//! already started and returns, with the game driven by UIKit's run loop.
+//! Later Play presses call [`horizon_ios_launch_action`], which hands the
+//! chosen world or server to that same loop.
 #![cfg(target_os = "ios")]
 #![allow(dead_code)]
 mod game;
@@ -21,8 +23,9 @@ static ALLOCATOR: horizon_threads::Allocator = horizon_threads::Allocator;
 /// the linker keeps it.
 static MOD_API_LEVEL: [u8; 27] = horizon_mods::api_level::MARK;
 
-/// Called by `main` in `packaging/ios/main.m`. Never returns in practice:
-/// `EventLoop::run_app` ends in `UIApplicationMain`.
+/// Called by `main` in `packaging/ios/main.m` after the native launcher's Play
+/// button: starts the game and joins UIKit's run loop. Returns as soon as the
+/// game is running; the run loop keeps driving it from then on.
 #[unsafe(no_mangle)]
 pub extern "C" fn horizon_ios_main() -> i32 {
     horizon_threads::configure_allocator();
@@ -77,6 +80,14 @@ pub extern "C" fn horizon_ios_main() -> i32 {
     }
     logging::flush();
     0
+}
+
+/// Called by `packaging/ios/launcher.m` when Play is pressed after the game
+/// has already started (a world was left, the launcher came back). Reads
+/// `horizon-launch.txt`, queues its action and wakes the winit loop.
+#[unsafe(no_mangle)]
+pub extern "C" fn horizon_ios_launch_action() {
+    game::ios_launcher_action();
 }
 
 /// Called by `main.m` when iOS posts a memory warning: note the peak, ask the

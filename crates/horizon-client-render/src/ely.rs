@@ -94,13 +94,39 @@ fn agent() -> ureq::Agent {
         .build()
 }
 
-/// A client token for the request: Ely.by only echoes it back, so any
-/// unpredictable value will do.
+/// A client token for the request: an unpredictable UUID, the form Authlib uses
+/// (`UUID.randomUUID()`), not 32 bare hex digits. Ely.by only echoes it back,
+/// but it validates the shape.
 fn client_token() -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+    use std::{
+        collections::hash_map::DefaultHasher,
+        hash::{Hash, Hasher},
+        time::{SystemTime, UNIX_EPOCH},
+    };
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
-    format!("{:016x}{:016x}", now.as_secs(), now.subsec_nanos())
+    // Time, the process and a per-call counter seed this; the token guards
+    // nothing, it only has to look like a UUID and differ between requests.
+    static CALLS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let call = CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let mut first = DefaultHasher::new();
+    now.as_nanos().hash(&mut first);
+    std::process::id().hash(&mut first);
+    let a = first.finish();
+    let mut second = DefaultHasher::new();
+    a.hash(&mut second);
+    std::thread::current().id().hash(&mut second);
+    call.hash(&mut second);
+    let b = second.finish();
+    format!(
+        "{:08x}-{:04x}-4{:03x}-{:04x}-{:012x}",
+        (a >> 32) as u32,
+        (a >> 16) as u16,
+        a & 0xfff,
+        ((b >> 48) as u16 & 0x3fff) | 0x8000,
+        b & 0xffff_ffff_ffff
+    )
 }
 
 /// Turn an authserver error response into [`Error`], like authlib's
@@ -242,6 +268,20 @@ fn fetch_bytes(url: &str) -> Result<Option<Vec<u8>>, Error> {
 #[cfg(test)]
 mod tests {
     use super::{Error, from_response};
+
+    #[test]
+    fn the_client_token_is_a_uuid() {
+        let token = super::client_token();
+        let parts: Vec<&str> = token.split('-').collect();
+        assert_eq!(
+            parts.iter().map(|part| part.len()).collect::<Vec<_>>(),
+            vec![8, 4, 4, 4, 12],
+            "{token}"
+        );
+        assert!(token.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
+        assert_eq!(&parts[2][..1], "4", "a version 4 UUID: {token}");
+        assert_ne!(super::client_token(), token);
+    }
 
     #[test]
     fn errors_read_like_ely_by() {

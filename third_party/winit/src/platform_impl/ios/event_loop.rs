@@ -270,20 +270,25 @@ impl<T: 'static> EventLoop<T> {
         })
     }
 
-    pub fn run<F>(self, handler: F) -> !
+    pub fn run<F>(self, handler: F) -> Result<(), EventLoopError>
     where
         F: FnMut(Event<T>, &RootActiveEventLoop),
     {
-        let application: Option<Retained<UIApplication>> =
-            unsafe { msg_send_id![UIApplication::class(), sharedApplication] };
-        assert!(
-            application.is_none(),
-            "\
-                `EventLoop` cannot be `run` after a call to `UIApplicationMain` on iOS\nNote: \
-             `EventLoop::run_app` calls `UIApplicationMain` on iOS",
-        );
+        let EventLoop {
+            mtm,
+            sender: _,
+            receiver,
+            window_target,
+            _did_finish_launching_observer,
+            _did_become_active_observer,
+            _will_resign_active_observer,
+            _will_enter_foreground_observer,
+            _did_enter_background_observer,
+            _will_terminate_observer,
+            _did_receive_memory_warning_observer,
+        } = self;
 
-        let handler = map_user_event(handler, self.receiver);
+        let handler = map_user_event(handler, receiver);
 
         let handler = unsafe {
             std::mem::transmute::<
@@ -292,9 +297,35 @@ impl<T: 'static> EventLoop<T> {
             >(Box::new(handler))
         };
 
-        let handler = EventLoopHandler { handler, event_loop: self.window_target };
+        let handler = EventLoopHandler { handler, event_loop: window_target };
 
-        app_state::will_launch(self.mtm, handler);
+        let application: Option<Retained<UIApplication>> =
+            unsafe { msg_send_id![UIApplication::class(), sharedApplication] };
+
+        if application.is_some() {
+            // Horizon's native launcher already started UIKit: join its run loop
+            // instead of calling `UIApplicationMain` a second time. The run loop
+            // keeps calling winit's observers after this returns, so the handler
+            // stays in the app state and the observers must not be dropped.
+            app_state::will_launch(mtm, handler);
+            app_state::did_finish_launching(mtm);
+            // `UIApplicationDidBecomeActiveNotification` fired before the game
+            // started, so the observer did not see it: deliver `Resumed` here
+            // or the window would never be created.
+            app_state::handle_nonuser_event(mtm, EventWrapper::StaticEvent(Event::Resumed));
+            std::mem::forget((
+                _did_finish_launching_observer,
+                _did_become_active_observer,
+                _will_resign_active_observer,
+                _will_enter_foreground_observer,
+                _did_enter_background_observer,
+                _will_terminate_observer,
+                _did_receive_memory_warning_observer,
+            ));
+            return Ok(());
+        }
+
+        app_state::will_launch(mtm, handler);
 
         extern "C" {
             // These functions are in crt_externs.h.

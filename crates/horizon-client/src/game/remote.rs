@@ -6,6 +6,8 @@
 //! clicks). The player still moves with the local physics, as the vanilla
 //! client predicts its own movement; the server stays authoritative for
 //! everything else.
+#[cfg(target_os = "ios")]
+use super::ios_launcher;
 use super::remote_chunks::{ChunkDecoder, ChunkFormat, Next};
 use super::{Dim, Game, Mining, Screen};
 use horizon_client::first_person::{Hand, SwingAnimation};
@@ -866,10 +868,11 @@ impl Game<'_> {
         if let Some(r) = self.renderer.as_mut() {
             r.clear_sections(self.world.layout());
         }
-        if cfg!(target_os = "ios") && reason.is_none() {
-            // Aksi Home replaces the title after a world closes; a disconnect
-            // (reason Some) still shows the Disconnected screen.
-            self.open_home();
+        #[cfg(target_os = "ios")]
+        if reason.is_none() {
+            // The native launcher replaces the title after a world closes; a
+            // disconnect (reason Some) still shows the Disconnected screen.
+            ios_launcher::present();
             return Ok(());
         }
         let saves = std::env::current_dir()?.join("saves");

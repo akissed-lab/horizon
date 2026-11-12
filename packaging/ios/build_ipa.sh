@@ -9,7 +9,8 @@
 #
 # Needs macOS with Xcode's command line tools (clang, sips, codesign, ditto) and
 # the aarch64-apple-ios Rust target (added if missing). No Xcode project: the
-# game is a Rust static library, linked against packaging/ios/main.m by hand.
+# game is a Rust static library, linked against the Objective-C launcher in
+# packaging/ios/ by hand.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -38,15 +39,21 @@ ARCH=(-target "arm64-apple-ios$MIN_IOS" -isysroot "$SDK_PATH" -miphoneos-version
 rm -rf "$OUT/Payload"
 mkdir -p "$APP"
 
-# main.m is plain C/ObjC: it must not start UIKit before Rust does (see the file).
-"$CLANG" "${ARCH[@]}" -fobjc-arc -O2 -c packaging/ios/main.m -o "$OUT/main.o"
+# The Objective-C sources: main.m starts UIKit with the launcher's delegate,
+# launcher.m is the menu itself, launcher_ely.m its Ely.by sign-in. All three
+# are ARC and share launcher.h.
+for source in main launcher launcher_ely; do
+  "$CLANG" "${ARCH[@]}" -fobjc-arc -O2 -c "packaging/ios/$source.m" -o "$OUT/$source.o"
+done
 
 # Framework list: winit's iOS backend (UIKit, CoreGraphics, CoreMotion), wgpu's
 # Metal backend (Metal, QuartzCore, CoreVideo, IOSurface), cpal's CoreAudio
 # backend, and the SystemConfiguration/Security frameworks the network stack
-# touches. The Rust libraries only declare link flags in objects the linker may
-# not pull in, so they are named here explicitly.
-"$CLANG" "${ARCH[@]}" -o "$APP/Horizon" "$OUT/main.o" "$LIB" \
+# touches. The launcher's Ely.by sign-in uses NSURLSession (Foundation), and the
+# gradient layers need QuartzCore. The Rust libraries only declare link flags in
+# objects the linker may not pull in, so they are named here explicitly.
+"$CLANG" "${ARCH[@]}" -o "$APP/Horizon" \
+  "$OUT/main.o" "$OUT/launcher.o" "$OUT/launcher_ely.o" "$LIB" \
   -framework UIKit \
   -framework Foundation \
   -framework CoreFoundation \
