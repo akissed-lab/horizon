@@ -1,6 +1,7 @@
-//! The player's own skin on Android: `horizon-skin.png` (64x64 or 64x32) and
-//! `horizon-skin.txt` (`model:slim` or `model:classic`) in the game directory,
-//! written by the profile screen (ProfileActivity). Checked once a second; a
+//! The player's own skin on Android and iOS: `horizon-skin.png` (64x64 or
+//! 64x32) and `horizon-skin.txt` (`model:slim` or `model:classic`) in the game
+//! directory, written by the profile screen (ProfileActivity) or the iOS
+//! launcher. Checked once a second; a
 //! changed file is put in an atlas skin slot (`store_skin`) and on the
 //! player's model, slim arms through `player_slim#main`.
 use super::Game;

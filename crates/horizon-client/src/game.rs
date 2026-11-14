@@ -6211,6 +6211,9 @@ impl Game<'_> {
             }
         }
         if self.remote.is_some() {
+            // The window's own skin, read here because a server-thread client
+            // never runs `tick_world` (where an in-frame world reads it).
+            self.tick_local_skin();
             return self.tick_remote();
         }
         // LevelLoadingScreen.tick.
@@ -18209,6 +18212,11 @@ pub fn run() -> Result<()> {
     let Some(mut options) = Options::read()? else {
         return Ok(());
     };
+    // The launcher's Ely.by nickname must be the one the engine builds its
+    // player (and the title's profile) with, not only what the next launch
+    // file hands over.
+    #[cfg(target_os = "ios")]
+    ios_launcher::apply_identity(&mut options);
     if options.execution_role == execution_role::ExecutionRole::DedicatedServer
         && !dedicated::preflight(&mut options)?
     {

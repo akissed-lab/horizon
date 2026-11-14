@@ -1,16 +1,19 @@
 //! The bridge to the native UIKit launcher (`packaging/ios/launcher.m`).
 //!
 //! The launcher is shown before the engine exists: it writes
-//! `horizon-launch.txt` with the world (or server) the player chose, hides
-//! itself and calls [`horizon_ios_main`](super::run) through the C entry point.
+//! `horizon-launch.txt` with what the player chose (normally `title:`, the
+//! game's own title screen; also a world or server), hides itself and calls
+//! [`horizon_ios_main`](super::run) through the C entry point.
 //! Once the game is running, closing a world brings the same launcher back; its
 //! Play button then writes the file again and calls the C shim
 //! `horizon_ios_launch_action`, which queues the action and wakes the winit
 //! loop through its proxy. The leaked `App` applies it on the main thread.
 //!
-//! The launcher also keeps `horizon-launcher.txt` (`accent:`, `memory:`), which
-//! [`apply_launcher_settings`] folds into the settings at startup.
-use super::{Game, PendingWorldEntry};
+//! The launcher also keeps `horizon-launcher.txt` (`accent:`, `memory:` and
+//! the other controls), which [`apply_launcher_settings`] folds into the
+//! settings at startup, and the nickname files, which [`apply_identity`] reads
+//! before the game is built.
+use super::{Game, Options, PendingWorldEntry};
 use horizon_client::{
     Result,
     extras::{ACCENTS, MEMORY},
@@ -29,6 +32,8 @@ const SETTINGS_FILE: &str = "horizon-launcher.txt";
 
 /// What the launcher's Play button asked for.
 pub(super) enum Launch {
+    /// No world: the game's own title and world list, where the player picks.
+    Title,
     /// An existing save folder.
     World(String),
     /// A new world: its display name, optional seed and game mode.
@@ -114,6 +119,7 @@ fn parse(text: &str) -> Option<Launch> {
     let mut lines = text.lines().map(|line| line.trim_end_matches('\r'));
     let (kind, value) = lines.next()?.trim().split_once(':')?;
     match kind {
+        "title" | "game" => Some(Launch::Title),
         "world" if !value.is_empty() => Some(Launch::World(value.to_owned())),
         "server" if !value.is_empty() => Some(Launch::Server(value.to_owned())),
         "new" => {
@@ -148,10 +154,15 @@ pub(super) fn apply(game: &mut Game<'_>, launch: Launch) -> Result<()> {
     // The launcher may have been used since the game started (its Account or
     // Settings tab): pick up the name and presets it wrote before joining.
     apply_launcher_settings(&mut game.settings);
-    game.options.player_name = player_name();
-    let title = game.new_title()?;
-    game.title = Some(title);
+    game.options.player_name = player_name().or_else(account_name);
+    // Play without a world shows the game's own title and world list.
+    game.title = Some(game.new_title()?);
+    if matches!(launch, Launch::Title) {
+        game.pending_entry = None;
+        return Ok(());
+    }
     game.pending_entry = Some(match launch {
+        Launch::Title => unreachable!(),
         Launch::World(folder) => PendingWorldEntry::Local {
             folder,
             name: None,
@@ -189,6 +200,26 @@ fn player_name() -> Option<String> {
         .map(str::trim)
         .filter(|name| !name.is_empty())
         .map(str::to_owned)
+}
+
+/// The account's nickname from `horizon-account.txt`, for a player file that
+/// is missing (the launcher always writes both).
+fn account_name() -> Option<String> {
+    let text = std::fs::read_to_string("horizon-account.txt").ok()?;
+    text.lines()
+        .find_map(|line| line.trim_end_matches('\r').strip_prefix("name:"))
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned)
+}
+
+/// The launcher's nickname, applied before the game (and its worlds) are
+/// built: the first Play starts the engine with the launch file, but a
+/// nickname changed later in the launcher must not wait for the next world.
+pub(super) fn apply_identity(options: &mut Options) {
+    if let Some(name) = player_name().or_else(account_name) {
+        options.player_name = Some(name);
+    }
 }
 
 /// The folder a new world gets, as `Title::target_folder` (FileUtil.findAvailableName).
@@ -250,6 +281,49 @@ pub(super) fn apply_launcher_settings(settings: &mut Settings) {
                     settings.particles = preset.particles;
                     changed = true;
                 }
+            }
+            // The launcher's own controls, over the memory preset: the player
+            // picked them explicitly, so they win over the preset's numbers.
+            "distance" => {
+                if let Ok(distance) = value.trim().parse::<i32>() {
+                    settings.render_distance = distance.clamp(2, 32);
+                    settings.simulation_distance =
+                        settings.simulation_distance.min(settings.render_distance);
+                    changed = true;
+                }
+            }
+            "fov" => {
+                if let Ok(fov) = value.trim().parse::<f32>() {
+                    settings.fov = fov.clamp(30.0, 110.0);
+                    changed = true;
+                }
+            }
+            "sensitivity" => {
+                if let Ok(percent) = value.trim().parse::<f32>() {
+                    settings.sensitivity = (percent / 100.0).clamp(0.1, 1.0);
+                    changed = true;
+                }
+            }
+            "volume" => {
+                if let Ok(percent) = value.trim().parse::<f32>() {
+                    settings.master_volume = (percent / 100.0).clamp(0.0, 1.0);
+                    settings.volumes[0] = settings.master_volume;
+                    changed = true;
+                }
+            }
+            "gui" => {
+                if let Ok(scale) = value.trim().parse::<u32>() {
+                    settings.gui_scale = scale.min(4);
+                    changed = true;
+                }
+            }
+            "invert_y" => {
+                settings.invert_y = value.trim() == "1";
+                changed = true;
+            }
+            "bobbing" => {
+                settings.view_bobbing = value.trim() == "1";
+                changed = true;
             }
             _ => {}
         }
