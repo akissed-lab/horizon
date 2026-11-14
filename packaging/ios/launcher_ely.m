@@ -4,8 +4,13 @@
 // what went wrong. The password is never logged or written; only the nickname,
 // UUID and skin are kept, as `horizon-account.txt`, `horizon-player.txt`,
 // `horizon-skin.png` and `horizon-skin.txt`.
+//
+// The same screen takes a skin from a file (the document picker) for players
+// without an Ely.by account: a 64x64 or 64x32 PNG written next to the files
+// above, which the game's local-skin loader already reads.
 #import "launcher.h"
 #import <QuartzCore/QuartzCore.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #include <string.h>
 
 static NSString *const AksiElyAccountFile = @"horizon-account.txt";
@@ -79,11 +84,15 @@ static void AksiElyRemoveSkin(void) {
     [fm removeItemAtPath:AksiElyPath(AksiElySkinModelFile) error:NULL];
 }
 
-@interface AksiAccountViewController ()
+@interface AksiAccountViewController () <UIDocumentPickerDelegate>
 - (void)refresh;
+- (void)refreshLocalSkin;
 - (void)setStatus:(NSString *)status error:(BOOL)error;
 - (void)signInTapped;
 - (void)signOutTapped;
+- (void)chooseSkinTapped;
+- (void)removeLocalSkinTapped;
+- (void)localModelChanged:(UISegmentedControl *)sender;
 - (void)fetchSkin:(NSString *)name;
 - (void)fetchSkinModel:(NSString *)name;
 - (void)handleAuth:(NSDictionary *)json
@@ -102,6 +111,11 @@ static void AksiElyRemoveSkin(void) {
     UITextField *_passwordField;
     UIButton *_signInButton;
     UILabel *_statusLabel;
+    UIView *_localPanel;
+    UIImageView *_localSkinView;
+    UILabel *_localStatusLabel;
+    UISegmentedControl *_localModel;
+    UIButton *_removeSkinButton;
     NSURLSession *_session;
     BOOL _signingIn;
 }
@@ -188,6 +202,78 @@ static void AksiElyRemoveSkin(void) {
     [stack setCustomSpacing:14.0 afterView:_statusLabel];
     [stack addArrangedSubview:hint];
 
+    // A skin without an account: the same `horizon-skin.png` the Ely.by flow
+    // writes, chosen from a file. Signing in replaces it with the net skin.
+    [stack setCustomSpacing:18.0 afterView:hint];
+    [stack addArrangedSubview:AksiSectionLabel(@"СВОЙ СКИН")];
+    UILabel *localHint = AksiMakeLabel(
+        @"PNG 64×64 или 64×32, до 512 КБ. Подходит без аккаунта Ely.by; вход в Ely.by "
+        @"заменит его скином из сети.",
+        [UIFont systemFontOfSize:13], AksiDimColor());
+    [stack addArrangedSubview:localHint];
+
+    _localPanel = [[UIView alloc] init];
+    _localPanel.translatesAutoresizingMaskIntoConstraints = NO;
+    AksiStylePanel(_localPanel);
+    _localSkinView = [[UIImageView alloc] init];
+    _localSkinView.translatesAutoresizingMaskIntoConstraints = NO;
+    _localSkinView.contentMode = UIViewContentModeScaleAspectFit;
+    _localSkinView.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.05];
+    _localSkinView.layer.cornerRadius = 10.0;
+    _localSkinView.layer.cornerCurve = kCACornerCurveContinuous;
+    _localSkinView.clipsToBounds = YES;
+    _localStatusLabel = AksiMakeLabel(@"", [UIFont systemFontOfSize:14], AksiTextColor());
+    UIButton *choose =
+        AksiMakeButton(@"Выбрать PNG из Файлов", YES);
+    [choose addTarget:self
+                  action:@selector(chooseSkinTapped)
+        forControlEvents:UIControlEventTouchUpInside];
+    _localModel = [[UISegmentedControl alloc] initWithItems:@[ @"Классический", @"Тонкий" ]];
+    _localModel.translatesAutoresizingMaskIntoConstraints = NO;
+    _localModel.selectedSegmentTintColor = AksiAccentColor();
+    [_localModel setTitleTextAttributes:@{NSForegroundColorAttributeName : AksiTextColor()}
+                              forState:UIControlStateNormal];
+    [_localModel setTitleTextAttributes:@{NSForegroundColorAttributeName : [UIColor whiteColor]}
+                              forState:UIControlStateSelected];
+    [_localModel addTarget:self
+                    action:@selector(localModelChanged:)
+          forControlEvents:UIControlEventValueChanged];
+    _removeSkinButton = AksiMakeButton(@"Убрать скин", NO);
+    [_removeSkinButton addTarget:self
+                          action:@selector(removeLocalSkinTapped)
+                forControlEvents:UIControlEventTouchUpInside];
+
+    [_localPanel addSubview:_localSkinView];
+    [_localPanel addSubview:_localStatusLabel];
+    [_localPanel addSubview:choose];
+    [_localPanel addSubview:_localModel];
+    [_localPanel addSubview:_removeSkinButton];
+    [NSLayoutConstraint activateConstraints:@[
+        [_localSkinView.leadingAnchor constraintEqualToAnchor:_localPanel.leadingAnchor constant:14.0],
+        [_localSkinView.topAnchor constraintEqualToAnchor:_localPanel.topAnchor constant:14.0],
+        [_localSkinView.widthAnchor constraintEqualToConstant:64.0],
+        [_localSkinView.heightAnchor constraintEqualToConstant:64.0],
+        [_localStatusLabel.leadingAnchor constraintEqualToAnchor:_localSkinView.trailingAnchor
+                                                        constant:14.0],
+        [_localStatusLabel.topAnchor constraintEqualToAnchor:_localPanel.topAnchor constant:16.0],
+        [_localStatusLabel.trailingAnchor constraintLessThanOrEqualToAnchor:_localPanel.trailingAnchor
+                                                                  constant:-14.0],
+        [choose.leadingAnchor constraintEqualToAnchor:_localPanel.leadingAnchor constant:14.0],
+        [choose.trailingAnchor constraintEqualToAnchor:_localPanel.trailingAnchor constant:-14.0],
+        [choose.topAnchor constraintEqualToAnchor:_localSkinView.bottomAnchor constant:14.0],
+        [_localModel.leadingAnchor constraintEqualToAnchor:choose.leadingAnchor],
+        [_localModel.trailingAnchor constraintEqualToAnchor:choose.trailingAnchor],
+        [_localModel.topAnchor constraintEqualToAnchor:choose.bottomAnchor constant:10.0],
+        [_removeSkinButton.leadingAnchor constraintEqualToAnchor:choose.leadingAnchor],
+        [_removeSkinButton.trailingAnchor constraintEqualToAnchor:choose.trailingAnchor],
+        [_removeSkinButton.topAnchor constraintEqualToAnchor:_localModel.bottomAnchor
+                                                    constant:10.0],
+        [_removeSkinButton.bottomAnchor constraintEqualToAnchor:_localPanel.bottomAnchor
+                                                       constant:-14.0],
+    ]];
+    [stack addArrangedSubview:_localPanel];
+
+    [self refreshLocalSkin];
     [self refresh];
 }
 
@@ -238,6 +324,90 @@ static void AksiElyRemoveSkin(void) {
         _skinView.image = nil;
         _skinView.hidden = YES;
     }
+    [self refreshLocalSkin];
+}
+
+- (void)refreshLocalSkin {
+    if (!self.isViewLoaded) {
+        return;
+    }
+    UIImage *skin = [UIImage imageWithContentsOfFile:AksiElyPath(AksiElySkinFile)];
+    _localSkinView.image = skin;
+    _localSkinView.hidden = skin == nil;
+    NSString *model = [NSString stringWithContentsOfFile:AksiElyPath(AksiElySkinModelFile)
+                                               encoding:NSUTF8StringEncoding
+                                                  error:NULL];
+    _localModel.selectedSegmentIndex = [model containsString:@"model:slim"] ? 1 : 0;
+    _localModel.enabled = skin != nil;
+    _removeSkinButton.enabled = skin != nil;
+    _removeSkinButton.alpha = skin ? 1.0 : 0.5;
+    if (!skin) {
+        _localStatusLabel.text = @"Скин не выбран — в игре будет стандартный.";
+        return;
+    }
+    size_t width = skin.CGImage ? CGImageGetWidth(skin.CGImage) : 0;
+    size_t height = skin.CGImage ? CGImageGetHeight(skin.CGImage) : 0;
+    _localStatusLabel.text =
+        [NSString stringWithFormat:@"Скин %zux%zu, %@", width, height,
+                                   _localModel.selectedSegmentIndex == 1 ? @"тонкий" : @"классический"];
+}
+
+- (void)chooseSkinTapped {
+    UIDocumentPickerViewController *picker =
+        [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[ UTTypePNG ]
+                                                                  asCopy:YES];
+    picker.delegate = self;
+    picker.allowsMultipleSelection = NO;
+    [self presentViewController:picker animated:YES completion:nil];
+}
+
+- (void)documentPicker:(UIDocumentPickerViewController *)controller
+    didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+    (void)controller;
+    NSURL *url = urls.firstObject;
+    if (!url) {
+        return;
+    }
+    NSData *data = [NSData dataWithContentsOfURL:url options:0 error:NULL];
+    UIImage *image = data ? [UIImage imageWithData:data] : nil;
+    // Measure the pixels, not `size` (points depend on the image's scale).
+    size_t width = image.CGImage ? CGImageGetWidth(image.CGImage) : 0;
+    size_t height = image.CGImage ? CGImageGetHeight(image.CGImage) : 0;
+    BOOL usable = width == 64 && (height == 64 || height == 32) && data.length <= 512 * 1024;
+    if (!usable) {
+        [self setStatus:@"Скин должен быть PNG 64×64 или 64×32, не больше 512 КБ." error:YES];
+        return;
+    }
+    if (![data writeToFile:AksiElyPath(AksiElySkinFile) atomically:YES]) {
+        [self setStatus:@"Не удалось сохранить скин в Documents/Horizon." error:YES];
+        return;
+    }
+    // The chosen model wins; the game reads it next to the PNG.
+    AksiElyWrite(AksiElyPath(AksiElySkinModelFile),
+                 _localModel.selectedSegmentIndex == 1 ? @"model:slim\n" : @"model:classic\n");
+    AksiLog(@"skin: local PNG saved (%zux%zu)", width, height);
+    [self setStatus:@"Скин сохранён — игра подхватит его при входе в мир." error:NO];
+    [self refresh];
+}
+
+- (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
+    (void)controller;
+}
+
+- (void)removeLocalSkinTapped {
+    AksiElyRemoveSkin();
+    AksiLog(@"skin: removed from the launcher");
+    [self setStatus:@"Скин убран — в игре будет стандартный." error:NO];
+    [self refresh];
+}
+
+- (void)localModelChanged:(UISegmentedControl *)sender {
+    if (![[NSFileManager defaultManager] fileExistsAtPath:AksiElyPath(AksiElySkinFile)]) {
+        return;
+    }
+    AksiElyWrite(AksiElyPath(AksiElySkinModelFile),
+                 sender.selectedSegmentIndex == 1 ? @"model:slim\n" : @"model:classic\n");
+    [self refreshLocalSkin];
 }
 
 - (void)setStatus:(NSString *)status error:(BOOL)error {

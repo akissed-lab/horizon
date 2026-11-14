@@ -49,8 +49,9 @@ done
 # Framework list: winit's iOS backend (UIKit, CoreGraphics, CoreMotion), wgpu's
 # Metal backend (Metal, QuartzCore, CoreVideo, IOSurface), cpal's CoreAudio
 # backend, and the SystemConfiguration/Security frameworks the network stack
-# touches. The launcher's Ely.by sign-in uses NSURLSession (Foundation), and the
-# gradient layers need QuartzCore. The Rust libraries only declare link flags in
+# touches. The launcher's Ely.by sign-in uses NSURLSession (Foundation), its
+# skin picker needs UniformTypeIdentifiers, and the gradient layers need
+# QuartzCore. The Rust libraries only declare link flags in
 # objects the linker may not pull in, so they are named here explicitly.
 "$CLANG" "${ARCH[@]}" -o "$APP/Horizon" \
   "$OUT/main.o" "$OUT/launcher.o" "$OUT/launcher_ely.o" "$LIB" \
@@ -70,6 +71,7 @@ done
   -framework GameController \
   -framework Security \
   -framework SystemConfiguration \
+  -framework UniformTypeIdentifiers \
   -lc++ -lz
 
 # Rust's debug symbols and the local symbol names are of no use on a phone.

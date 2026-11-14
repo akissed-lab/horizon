@@ -14,8 +14,8 @@ and crashes in `Documents/Horizon/crash-reports/`, both readable in the Files ap
 
 Unlike the Android build there is **no in-app game-file downloader** and **no Microsoft login**:
 the game files are prepared on a PC and copied to the phone once (see "Game files"). The app opens
-in the native **Aksi launcher** — Continue, all worlds, a new world, multiplayer, settings and the
-Ely.by account — and only starts the engine when Play is pressed.
+in the native **Aksi launcher** — Play, settings and the Ely.by account — and only starts the engine
+when Play is pressed. The launcher is portrait; the game runs landscape.
 
 ## Requirements
 
@@ -87,29 +87,32 @@ including worlds and game files, so back up `saves/` before deleting it.
 ## Launcher
 
 The first screen is a native UIKit menu, not the engine: nothing is loaded until you press Play, so
-a phone with no game files still opens the app and explains what is missing.
+a phone with no game files still opens the app and explains what is missing. The launcher is
+**portrait**; Play starts the engine in **landscape** (see Controls).
 
-- **Continue** opens the most recently modified world in `saves/`; with no worlds it opens the
-  new-world form instead.
-- **All worlds** lists the folders in `saves/` that contain `level.dat`, newest first.
-- **New world** takes a name, an optional seed and the creative/gamemode switch, then creates the
-  folder and opens it. The name becomes the folder name, as in vanilla.
-- **Multiplayer** connects to a server address directly (`host` or `host:port`); offline-mode
-  servers only, since there is no session join.
-- **Settings** holds the accent colour (the game's eight-colour palette) and the memory preset
-  (Economy / Normal / Maximum), stored in `horizon-launcher.txt`. The preset sets render and
-  simulation distance, the FPS cap and particles, and is applied at startup and again each time a
-  world starts from the launcher. The Aksi screen in the pause menu edits the same settings while
-  you play.
+- **Play** ("Запустить игру") starts the engine at the game's own title screen. Its world list,
+  world creation and multiplayer are the vanilla screens from there, so there is one launcher, not
+  two.
+- **Settings** holds the accent colour (the game's eight-colour palette), the memory preset
+  (Economy / Normal / Maximum), a render-distance slider (2–32 chunks), GUI scale
+  (Auto / 1 / 2 / 3), view bobbing, field of view (30–110°), sensitivity (1–100%), invert-Y and
+  master volume. They are stored in `horizon-launcher.txt` and applied at startup and again each
+  time a world starts from the launcher. The memory preset sets simulation distance, the FPS cap and
+  particles; the distance slider overrides the preset's render distance. The Aksi screen in the
+  pause menu edits the same settings while you play.
 - **Account** is the Ely.by sign-in: nickname and password go to `authserver.ely.by` with
   `NSURLSession` (the system TLS stack), and only the nickname, UUID, skin and skin model are kept
-  on the phone. The password and access token are never written or logged.
+  on the phone. The password and access token are never written or logged. The same screen takes a
+  **local skin** for players without an account: a 64×64 or 64×32 PNG from the Files app with a
+  classic or slim model, saved as `horizon-skin.png`/`horizon-skin.txt`. Signing in replaces it with
+  the account's skin.
 
 Play hands your choice to `horizon_ios_main`, which starts the game and joins the running
 `UIApplication`; from then on Play uses the already-running winit loop. Closing a world — Save and
-Quit to Title, or leaving a server — brings the same launcher back, with the world list refreshed.
-The launcher writes `horizon-launch.txt` and the game deletes it after reading it: `world:<folder>`,
-`new:<name>` (plus `seed:` and `creative:`), or `server:<address>`.
+Quit to Title, or leaving a server — brings the same launcher back. The launcher writes
+`horizon-launch.txt` and the game deletes it after reading it: `title:` (the game's title screen,
+what Play writes); the bridge also understands `world:<folder>`, `new:<name>` (plus `seed:` and
+`creative:`) and `server:<address>`, so a shortcut can open a world directly.
 
 ## Game files
 
@@ -144,9 +147,9 @@ Documents/Horizon/
   shaderpacks/
   horizon-account.txt   # Ely.by name and UUID, for the Account screen
   horizon-player.txt    # the nickname the game joins with
-  horizon-skin.png      # the Ely.by skin, if one is set
+  horizon-skin.png      # the Ely.by or local skin, if one is set
   horizon-skin.txt      # "model:slim" or "model:classic"
-  horizon-launcher.txt  # the launcher's accent and memory preset
+  horizon-launcher.txt  # accent, memory preset and the launcher's other settings
   logs/latest.log
   logs/launcher.log     # the launcher's own log (start, sign-in, launches)
   crash-reports/
@@ -157,11 +160,13 @@ Documents/Horizon/
 
 ## Controls
 
-The launcher is a normal UIKit app: tap a card to pick a world or screen, and the system keyboard
+The launcher is a normal UIKit app: tap a card to open Settings or Account, and the system keyboard
 appears in text fields. In the game, touch controls are the same as on Android (`game/touch.rs`): a
-movement joystick, look by dragging, jump/sneak, hotbar, and the inventory, pause, chat and emote
-buttons. In menus a finger is the mouse (tap = click, drag = scroll); over a screen in the world
-there is a close button that sends Escape.
+movement joystick, look by dragging, jump, sneak held while its button is down, hotbar, and the
+inventory, pause, chat and emote buttons. A drag that starts in free space turns the camera; a finger
+that starts on a button keeps it to itself, so several fingers can hold jump and attack while
+another looks. In menus a finger is the mouse (tap = click, drag = scroll); over a screen in the
+world there is a close button that sends Escape.
 
 The layout editor (the gear) writes `touch_layout.json` in the game folder on every change — a
 drag, a size or fade tap, a preset, even leaving with the back gesture — and the app saves it again
@@ -171,10 +176,13 @@ way; the log names both paths and any write error.
 A Bluetooth or USB keyboard and mouse work through winit. Controllers do not: `gilrs` has no iOS
 backend, so the `controllers` feature stays off.
 
-iOS is **landscape only**, like the Android build's `sensorLandscape`: the game fills the whole
-display, drawing under the status bar, the notch and the home indicator, and sizes its framebuffer
-from the window's outer size (winit's `inner_size` stops at the safe area and would stretch the
-picture).
+The launcher is **portrait** and the game is **landscape**. `Info.plist` lists both orientations;
+the app delegate returns portrait while a launcher window is on top and landscape for the engine's
+winit window. iOS 16+ turns the screen with a `UIWindowSceneGeometryPreferencesIOS` request
+(`attemptRotationToDeviceOrientation` is only the older fallback). In landscape the game fills the
+whole display, drawing under the status bar, the notch and the home indicator, and sizes its
+framebuffer from the window's outer size (winit's `inner_size` stops at the safe area and would
+stretch the picture).
 
 The app also defers the system's screen-edge gestures (`preferredScreenEdgesDeferringSystemGestures`):
 a swipe up from the bottom or down from the top only shows a hint the first time and needs a second,
@@ -230,10 +238,10 @@ keyboard again. A Bluetooth or USB keyboard still works the same way.
 | `crates/horizon-ios/Cargo.toml` | `staticlib` named `horizon`, crate root `../horizon-client/src/ios_main.rs` |
 | `crates/horizon-client/src/ios_main.rs` | C entry points: `horizon_ios_main` (sets `HORIZON_HOME`/`HORIZON_RESOURCES`/`HORIZON_CACHE`, logging and crash reports, raises the file limit, runs `game::run`) and `horizon_ios_launch_action` (hands a later Play press to the running loop) |
 | `packaging/ios/main.m` | `main` that calls `UIApplicationMain` with the launcher's delegate; UIKit therefore starts before the engine |
-| `packaging/ios/launcher.h`, `launcher.m` | the UIKit launcher: home, worlds, new world, multiplayer, settings, paths, the shared look, and starting/presenting the game |
-| `packaging/ios/launcher_ely.m` | the Ely.by sign-in screen: `NSURLSession` request, profile validation, skin and model download, sign-out |
+| `packaging/ios/launcher.h`, `launcher.m` | the UIKit launcher: home (Play, Settings, Account), the settings screen, paths, the shared look, portrait/landscape switching, and starting/presenting the game |
+| `packaging/ios/launcher_ely.m` | the Ely.by sign-in screen (`NSURLSession` request, profile validation, skin and model download, sign-out) and the local skin picker (`UIDocumentPicker`, PNG validation, model) |
 | `packaging/ios/build_ipa.sh` | cargo build, `clang` compile and link with the frameworks, `Info.plist`, icons, ad-hoc `codesign`, `zip` |
-| `packaging/ios/Info.plist` | bundle id, minimum iOS 15, Files/Finder sharing, launch screen, landscape-only orientations, legacy icon list |
+| `packaging/ios/Info.plist` | bundle id, minimum iOS 15, Files/Finder sharing, launch screen, portrait launcher + landscape game orientations, legacy icon list |
 | `.github/workflows/ios.yml` | macOS runner build, artifact, release on tags |
 
 The game code differs from the desktop build only where the platform does: Metal is the only
@@ -245,9 +253,10 @@ The one deviation from upstream winit is deliberate: `third_party/winit`'s iOS `
 joins a `UIApplication` that is already running (the launcher's) instead of calling
 `UIApplicationMain` itself, creates its observers, sends `Resumed` (the launch notification already
 fired) and returns. `crates/horizon-client/src/game/ios_launcher.rs` is the bridge: it reads
-`horizon-launch.txt`, applies the launcher's settings, queues a later Play press until the engine's
-loop drains it, and asks the launcher back when a world closes. Because `run_app` needs a `'static`
-closure, the engine's `App` is leaked on iOS and the launch game loop runs inside UIKit's run loop.
+`horizon-launch.txt` (normally `title:`), applies the launcher's settings and nickname, queues a
+later Play press until the engine's loop drains it, and asks the launcher back when a world closes.
+Because `run_app` needs a `'static` closure, the engine's `App` is leaked on iOS and the launch game
+loop runs inside UIKit's run loop.
 
 The bundle has no asset catalog (there is no Xcode project), so the icons are PNGs at the bundle
 root named `Icon-60@2x.png` and so on, generated from `packaging/icons/ios-1024.png` by `sips`,

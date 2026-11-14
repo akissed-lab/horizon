@@ -29,10 +29,6 @@ BOOL AksiResourcesReady(void);
 /// Appends one line to `logs/launcher.log`. Never pass passwords or tokens.
 void AksiLog(NSString *format, ...) NS_FORMAT_FUNCTION(1, 2);
 
-/// World folders under `saves/`, newest first. Each item has `folder` (the
-/// folder name, which is also the world's name) and `date` (NSDate).
-NSArray<NSDictionary<NSString *, id> *> *AksiWorldList(void);
-
 /// The Aksi look: the accent from `horizon-launcher.txt`, glass panels,
 /// labels and fields.
 UIColor *AksiAccentColor(void);
@@ -47,12 +43,17 @@ void AksiStyleButton(UIButton *button, BOOL prominent);
 UITextField *AksiMakeField(NSString *placeholder);
 void AksiAlert(UIViewController *controller, NSString *title, NSString *message);
 
-/// `horizon-launcher.txt`: `accent:` 0-7 (the game's ACCENTS order) and
-/// `memory:` 0-2 (economy, normal, maximum).
+/// `horizon-launcher.txt`, the launcher's own copy of the settings it shows:
+/// `accent:` 0-7 (the game's ACCENTS order), `memory:` 0-2 (economy, normal,
+/// maximum), `distance:`, `fov:`, `sensitivity:` and `volume:` (percent),
+/// `gui:` 0-3, `invert_y:` and `bobbing:` 0/1. A write rebuilds the file from
+/// these keys, in this order (unknown keys are dropped).
 NSInteger AksiAccentIndex(void);
 NSInteger AksiMemoryPreset(void);
 void AksiSetAccentIndex(NSInteger index);
 void AksiSetMemoryPreset(NSInteger preset);
+NSInteger AksiSettingNumber(NSString *key, NSInteger fallback, NSInteger minimum, NSInteger maximum);
+void AksiSetSettingNumber(NSString *key, NSInteger value);
 
 /// The signed-in account from `horizon-account.txt` (`name`, `uuid`); nil when
 /// nobody is signed in.

@@ -11,6 +11,7 @@
 // game loop. See IOS.md.
 #import "launcher.h"
 #import <QuartzCore/QuartzCore.h>
+#include <math.h>
 #include <stdio.h>
 
 extern int horizon_ios_main(void);
@@ -138,33 +139,6 @@ NSDictionary<NSString *, NSString *> * _Nullable AksiReadAccount(void) {
     return @{@"name" : name, @"uuid" : uuid};
 }
 
-NSArray<NSDictionary<NSString *, id> *> *AksiWorldList(void) {
-    NSString *saves = AksiPath(@"saves");
-    NSFileManager *fm = [NSFileManager defaultManager];
-    NSArray<NSString *> *folders = [fm contentsOfDirectoryAtPath:saves error:NULL];
-    NSMutableArray<NSDictionary<NSString *, id> *> *worlds = [NSMutableArray array];
-    for (NSString *folder in folders) {
-        NSString *path = [saves stringByAppendingPathComponent:folder];
-        BOOL directory = NO;
-        if (![fm fileExistsAtPath:path isDirectory:&directory] || !directory) {
-            continue;
-        }
-        // A world is a folder with level.dat; anything else in saves/ is not
-        // something the game can open.
-        NSDictionary *attributes =
-            [fm attributesOfItemAtPath:[path stringByAppendingPathComponent:@"level.dat"] error:NULL];
-        if (!attributes) {
-            continue;
-        }
-        NSDate *date = attributes[NSFileModificationDate] ?: [NSDate distantPast];
-        [worlds addObject:@{@"folder" : folder, @"date" : date}];
-    }
-    [worlds sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
-        return [b[@"date"] compare:a[@"date"]];
-    }];
-    return worlds;
-}
-
 static NSString *AksiVersion(void) {
     NSString *version = [NSBundle mainBundle].infoDictionary[@"CFBundleShortVersionString"];
     return version.length ? version : @"?";
@@ -172,25 +146,36 @@ static NSString *AksiVersion(void) {
 
 #pragma mark - Launcher settings
 
-static NSInteger AksiSetting(NSString *key, NSInteger fallback, NSInteger count) {
-    NSDictionary *values = AksiReadValues(AksiPath(AksiLauncherSettingsFile));
-    NSString *value = values[key];
-    if (value.length == 0) {
-        return fallback;
-    }
-    NSInteger index = value.integerValue;
-    if (index < 0 || index >= count) {
-        return fallback;
-    }
-    return index;
+/// Every key the launcher writes, in the order the file keeps them. The Rust
+/// side reads them in this order too: `memory` first, then the explicit
+/// `distance` that overrides the preset.
+static NSArray<NSString *> *AksiSettingKeys(void) {
+    return @[ @"accent", @"memory", @"distance", @"fov", @"sensitivity", @"volume", @"gui",
+              @"invert_y", @"bobbing" ];
 }
 
-static void AksiSetSetting(NSString *key, NSInteger value) {
+NSInteger AksiSettingNumber(NSString *key,
+                            NSInteger fallback,
+                            NSInteger minimum,
+                            NSInteger maximum) {
+    NSDictionary *values = AksiReadValues(AksiPath(AksiLauncherSettingsFile));
+    NSString *text = values[key];
+    if (text.length == 0) {
+        return fallback;
+    }
+    NSInteger value = text.integerValue;
+    if (value < minimum || value > maximum) {
+        return fallback;
+    }
+    return value;
+}
+
+void AksiSetSettingNumber(NSString *key, NSInteger value) {
     NSMutableDictionary *values =
         [AksiReadValues(AksiPath(AksiLauncherSettingsFile)) mutableCopy];
     values[key] = [NSString stringWithFormat:@"%ld", (long)value];
     NSMutableString *text = [NSMutableString string];
-    for (NSString *name in @[@"accent", @"memory"]) {
+    for (NSString *name in AksiSettingKeys()) {
         if (values[name]) {
             [text appendFormat:@"%@:%@\n", name, values[name]];
         }
@@ -199,19 +184,19 @@ static void AksiSetSetting(NSString *key, NSInteger value) {
 }
 
 NSInteger AksiAccentIndex(void) {
-    return AksiSetting(@"accent", 0, 8);
+    return AksiSettingNumber(@"accent", 0, 0, 7);
 }
 
 NSInteger AksiMemoryPreset(void) {
-    return AksiSetting(@"memory", 1, 3);
+    return AksiSettingNumber(@"memory", 1, 0, 2);
 }
 
 void AksiSetAccentIndex(NSInteger index) {
-    AksiSetSetting(@"accent", MAX(0, MIN(index, 7)));
+    AksiSetSettingNumber(@"accent", MAX(0, MIN(index, 7)));
 }
 
 void AksiSetMemoryPreset(NSInteger preset) {
-    AksiSetSetting(@"memory", MAX(0, MIN(preset, 2)));
+    AksiSetSettingNumber(@"memory", MAX(0, MIN(preset, 2)));
 }
 
 #pragma mark - Look
@@ -404,16 +389,7 @@ void AksiAlert(UIViewController *controller, NSString *title, NSString *message)
 @end
 
 // Declared here, before the home screen's implementation sends them `alloc`:
-// the other screens themselves come later, each with its own section.
-@interface AksiWorldsViewController : AksiScreenViewController
-@end
-
-@interface AksiNewWorldViewController : AksiScreenViewController
-@end
-
-@interface AksiMultiplayerViewController : AksiScreenViewController
-@end
-
+// the settings screen itself comes later, with its own section.
 @interface AksiSettingsViewController : AksiScreenViewController
 @end
 
@@ -611,7 +587,6 @@ static void AksiRestyleTree(UIView *view) {
 
 @interface AksiHomeViewController ()
 @property (nonatomic, strong) AksiMenuRow *playRow;
-@property (nonatomic, strong) AksiMenuRow *worldsRow;
 @property (nonatomic, strong) AksiMenuRow *accountRow;
 @property (nonatomic, strong) UIView *warningPanel;
 @property (nonatomic, strong) UILabel *footerLabel;
@@ -656,8 +631,8 @@ static void AksiRestyleTree(UIView *view) {
     [stack addArrangedSubview:self.warningPanel];
     [stack setCustomSpacing:16.0 afterView:self.warningPanel];
 
-    self.playRow = [[AksiMenuRow alloc] initWithHeading:@"Играть"
-                                                detail:@""
+    self.playRow = [[AksiMenuRow alloc] initWithHeading:@"Запустить игру"
+                                                detail:@"Миры и создание — в самой игре"
                                              prominent:YES];
     [self.playRow addTarget:self
                      action:@selector(playTapped)
@@ -665,37 +640,11 @@ static void AksiRestyleTree(UIView *view) {
     [stack addArrangedSubview:self.playRow];
     [stack setCustomSpacing:18.0 afterView:self.playRow];
 
-    UILabel *playLabel = AksiSectionLabel(@"МИРЫ");
-    [stack addArrangedSubview:playLabel];
-
-    self.worldsRow = [[AksiMenuRow alloc] initWithHeading:@"Все миры" detail:@"" prominent:NO];
-    [self.worldsRow addTarget:self
-                       action:@selector(worldsTapped)
-             forControlEvents:UIControlEventTouchUpInside];
-    [stack addArrangedSubview:self.worldsRow];
-
-    AksiMenuRow *newWorld = [[AksiMenuRow alloc] initWithHeading:@"Новый мир"
-                                                         detail:@"Имя, семя, режим"
-                                                      prominent:NO];
-    [newWorld addTarget:self
-                  action:@selector(newWorldTapped)
-        forControlEvents:UIControlEventTouchUpInside];
-    [stack addArrangedSubview:newWorld];
-
-    AksiMenuRow *multiplayer = [[AksiMenuRow alloc] initWithHeading:@"Сетевая игра"
-                                                            detail:@"Адрес сервера"
-                                                         prominent:NO];
-    [multiplayer addTarget:self
-                     action:@selector(multiplayerTapped)
-           forControlEvents:UIControlEventTouchUpInside];
-    [stack addArrangedSubview:multiplayer];
-
     UILabel *appLabel = AksiSectionLabel(@"ПРИЛОЖЕНИЕ");
     [stack addArrangedSubview:appLabel];
-    [stack setCustomSpacing:18.0 afterView:multiplayer];
 
     AksiMenuRow *settings = [[AksiMenuRow alloc] initWithHeading:@"Настройки"
-                                                         detail:@"Акцент, память"
+                                                         detail:@"Акцент, графика, управление"
                                                       prominent:NO];
     [settings addTarget:self
                   action:@selector(settingsTapped)
@@ -725,27 +674,18 @@ static void AksiRestyleTree(UIView *view) {
     if (!self.isViewLoaded) {
         return;
     }
-    NSArray<NSDictionary<NSString *, id> *> *worlds = AksiWorldList();
-    NSDictionary<NSString *, id> *first = worlds.firstObject;
-    if (first) {
-        [self.playRow setHeadingText:@"Продолжить" detail:first[@"folder"]];
-    } else {
-        [self.playRow setHeadingText:@"Новый мир" detail:@"Создать первый мир"];
-    }
-    [self.worldsRow setHeadingText:@"Все миры"
-                            detail:worlds.count
-                                       ? [NSString stringWithFormat:@"%lu %@", (unsigned long)worlds.count,
-                                                                    worlds.count == 1 ? @"мир" : @"миров"]
-                                       : @"Пока пусто"];
     NSDictionary<NSString *, NSString *> *account = AksiReadAccount();
     [self.accountRow setHeadingText:@"Аккаунт"
                              detail:account ? [NSString stringWithFormat:@"Ely.by · %@", account[@"name"]]
-                                            : @"Войти через Ely.by"];
+                                            : @"Ely.by или свой скин"];
 
     BOOL ready = AksiResourcesReady();
     self.warningPanel.hidden = ready;
     self.playRow.enabled = ready;
     self.playRow.alpha = ready ? 1.0 : 0.55;
+    [self.playRow setHeadingText:@"Запустить игру"
+                          detail:ready ? @"Миры и создание — в самой игре"
+                                       : @"Сначала добавьте файлы игры"];
     self.footerLabel.text = [NSString stringWithFormat:@"Aksi %@ · Horizon", AksiVersion()];
 }
 
@@ -756,24 +696,9 @@ static void AksiRestyleTree(UIView *view) {
                   @"движок не может начать.");
         return;
     }
-    NSDictionary<NSString *, id> *first = AksiWorldList().firstObject;
-    if (first) {
-        AksiStartFromHome([@"world:" stringByAppendingString:first[@"folder"]]);
-    } else {
-        [self push:[[AksiNewWorldViewController alloc] init]];
-    }
-}
-
-- (void)worldsTapped {
-    [self push:[[AksiWorldsViewController alloc] init]];
-}
-
-- (void)newWorldTapped {
-    [self push:[[AksiNewWorldViewController alloc] init]];
-}
-
-- (void)multiplayerTapped {
-    [self push:[[AksiMultiplayerViewController alloc] init]];
+    // The game's own title screen and world list are the launcher now: one
+    // screen, so many worlds, servers and new worlds are the game's business.
+    AksiStartFromHome(@"title:");
 }
 
 - (void)settingsTapped {
@@ -790,192 +715,134 @@ static void AksiRestyleTree(UIView *view) {
 
 @end
 
-#pragma mark - World list
-
-@interface AksiWorldRow : AksiMenuRow
-@property (nonatomic, copy) NSString *folder;
-@end
-
-@implementation AksiWorldRow
-@end
-
-@implementation AksiWorldsViewController
-
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    [self setScreenTitle:@"Миры" showsBack:YES];
-    UIStackView *stack = [self formStackWithSpacing:10.0];
-
-    AksiMenuRow *newWorld = [[AksiMenuRow alloc] initWithHeading:@"Новый мир"
-                                                         detail:@"Создать и открыть"
-                                                      prominent:YES];
-    [newWorld addTarget:self
-                  action:@selector(newWorldTapped)
-        forControlEvents:UIControlEventTouchUpInside];
-    [stack addArrangedSubview:newWorld];
-    [stack setCustomSpacing:16.0 afterView:newWorld];
-
-    NSArray<NSDictionary<NSString *, id> *> *worlds = AksiWorldList();
-    if (worlds.count == 0) {
-        UILabel *empty = AksiMakeLabel(@"В saves/ пока нет миров. Создайте первый.",
-                                       [UIFont systemFontOfSize:15], AksiDimColor());
-        [stack addArrangedSubview:empty];
-        return;
-    }
-    for (NSDictionary<NSString *, id> *world in worlds) {
-        NSString *date = [NSDateFormatter localizedStringFromDate:world[@"date"]
-                                                        dateStyle:NSDateFormatterMediumStyle
-                                                        timeStyle:NSDateFormatterShortStyle];
-        AksiWorldRow *row = [[AksiWorldRow alloc] initWithHeading:world[@"folder"]
-                                                          detail:date
-                                                       prominent:NO];
-        row.folder = world[@"folder"];
-        [row addTarget:self
-                  action:@selector(worldTapped:)
-        forControlEvents:UIControlEventTouchUpInside];
-        [stack addArrangedSubview:row];
-    }
-}
-
-- (void)worldTapped:(AksiWorldRow *)sender {
-    AksiStartFromHome([@"world:" stringByAppendingString:sender.folder]);
-}
-
-- (void)newWorldTapped {
-    [self.navigationController pushViewController:[[AksiNewWorldViewController alloc] init]
-                                         animated:YES];
-}
-
-@end
-
-#pragma mark - New world
-
-@implementation AksiNewWorldViewController {
-    UITextField *_nameField;
-    UITextField *_seedField;
-    UISwitch *_creativeSwitch;
-}
-
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    [self setScreenTitle:@"Новый мир" showsBack:YES];
-    UIStackView *stack = [self formStackWithSpacing:10.0];
-
-    [stack addArrangedSubview:AksiSectionLabel(@"НАЗВАНИЕ")];
-    _nameField = AksiMakeField(@"Новый мир");
-    _nameField.returnKeyType = UIReturnKeyNext;
-    [stack addArrangedSubview:_nameField];
-
-    [stack addArrangedSubview:AksiSectionLabel(@"СЕМЯ")];
-    _seedField = AksiMakeField(@"Пусто — случайное");
-    _seedField.returnKeyType = UIReturnKeyDone;
-    [stack addArrangedSubview:_seedField];
-
-    UIView *mode = [[UIView alloc] init];
-    mode.translatesAutoresizingMaskIntoConstraints = NO;
-    AksiStylePanel(mode);
-    UILabel *modeLabel = AksiMakeLabel(@"Творческий режим", [UIFont systemFontOfSize:16],
-                                       AksiTextColor());
-    _creativeSwitch = [[UISwitch alloc] init];
-    _creativeSwitch.translatesAutoresizingMaskIntoConstraints = NO;
-    _creativeSwitch.onTintColor = AksiAccentColor();
-    [mode addSubview:modeLabel];
-    [mode addSubview:_creativeSwitch];
-    [NSLayoutConstraint activateConstraints:@[
-        [modeLabel.leadingAnchor constraintEqualToAnchor:mode.leadingAnchor constant:18.0],
-        [modeLabel.centerYAnchor constraintEqualToAnchor:mode.centerYAnchor],
-        [modeLabel.trailingAnchor constraintLessThanOrEqualToAnchor:_creativeSwitch.leadingAnchor
-                                                          constant:-12.0],
-        [_creativeSwitch.trailingAnchor constraintEqualToAnchor:mode.trailingAnchor constant:-16.0],
-        [_creativeSwitch.centerYAnchor constraintEqualToAnchor:mode.centerYAnchor],
-        [mode.heightAnchor constraintGreaterThanOrEqualToConstant:58.0],
-    ]];
-    [stack setCustomSpacing:14.0 afterView:_seedField];
-    [stack addArrangedSubview:mode];
-
-    UIButton *create = AksiMakeButton(@"Создать и играть", YES);
-    [create addTarget:self action:@selector(createTapped) forControlEvents:UIControlEventTouchUpInside];
-    [stack setCustomSpacing:18.0 afterView:mode];
-    [stack addArrangedSubview:create];
-
-    UILabel *hint = AksiMakeLabel(
-        @"Мир сохранится в Documents/Horizon/saves и откроется сразу.",
-        [UIFont systemFontOfSize:13], AksiDimColor());
-    [stack addArrangedSubview:hint];
-}
-
-- (void)createTapped {
-    [self.view endEditing:YES];
-    NSString *name = [_nameField.text stringByTrimmingCharactersInSet:
-                                       [NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    if (name.length == 0) {
-        name = @"Новый мир";
-    }
-    name = [[name componentsSeparatedByCharactersInSet:
-                       [NSCharacterSet newlineCharacterSet]] componentsJoinedByString:@" "];
-    NSString *seed = [_seedField.text stringByTrimmingCharactersInSet:
-                                       [NSCharacterSet whitespaceAndNewlineCharacterSet]];
-
-    NSMutableString *launch = [NSMutableString stringWithFormat:@"new:%@\n", name];
-    if (seed.length) {
-        [launch appendFormat:@"seed:%@\n", seed];
-    }
-    [launch appendFormat:@"creative:%d\n", _creativeSwitch.isOn ? 1 : 0];
-    AksiStartFromHome(launch);
-}
-
-@end
-
-#pragma mark - Multiplayer
-
-@implementation AksiMultiplayerViewController {
-    UITextField *_addressField;
-}
-
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    [self setScreenTitle:@"Сетевая игра" showsBack:YES];
-    UIStackView *stack = [self formStackWithSpacing:10.0];
-
-    [stack addArrangedSubview:AksiSectionLabel(@"АДРЕС СЕРВЕРА")];
-    _addressField = AksiMakeField(@"mc.example.com или 192.168.1.5:25565");
-    _addressField.keyboardType = UIKeyboardTypeURL;
-    _addressField.returnKeyType = UIReturnKeyGo;
-    [_addressField addTarget:self
-                      action:@selector(connectTapped)
-            forControlEvents:UIControlEventEditingDidEndOnExit];
-    [stack addArrangedSubview:_addressField];
-
-    UIButton *connect = AksiMakeButton(@"Подключиться", YES);
-    [connect addTarget:self action:@selector(connectTapped) forControlEvents:UIControlEventTouchUpInside];
-    [stack setCustomSpacing:16.0 afterView:_addressField];
-    [stack addArrangedSubview:connect];
-
-    UILabel *hint = AksiMakeLabel(
-        @"Нужен сервер без проверки лицензии (offline-mode) и с тем же протоколом, что у "
-        @"этой сборки. Порт по умолчанию — 25565.",
-        [UIFont systemFontOfSize:13], AksiDimColor());
-    [stack addArrangedSubview:hint];
-}
-
-- (void)connectTapped {
-    [self.view endEditing:YES];
-    NSString *address = [_addressField.text stringByTrimmingCharactersInSet:
-                                           [NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    if (address.length == 0) {
-        AksiAlert(self, @"Нет адреса", @"Введите адрес сервера, например mc.example.com:25565.");
-        return;
-    }
-    AksiStartFromHome([@"server:" stringByAppendingString:address]);
-}
-
-@end
-
 #pragma mark - Settings
+
+/// The render distance a memory preset implies (extras.rs `MEMORY`). The
+/// launch file's explicit `distance:` overrides it, so the launcher writes both
+/// whenever the preset changes.
+static NSInteger AksiMemoryDistance(NSInteger preset) {
+    switch (preset) {
+        case 0:
+            return 4;
+        case 2:
+            return 12;
+        default:
+            return 8;
+    }
+}
+
+/// A glass card with a title on the left and a control on the right.
+static UIView *AksiControlPanel(NSString *title, UIView *control) {
+    UIView *panel = [[UIView alloc] init];
+    panel.translatesAutoresizingMaskIntoConstraints = NO;
+    AksiStylePanel(panel);
+    UILabel *label = AksiMakeLabel(title, [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold],
+                                   AksiTextColor());
+    [panel addSubview:label];
+    [panel addSubview:control];
+    [NSLayoutConstraint activateConstraints:@[
+        [label.leadingAnchor constraintEqualToAnchor:panel.leadingAnchor constant:16.0],
+        [label.topAnchor constraintEqualToAnchor:panel.topAnchor constant:13.0],
+        [label.bottomAnchor constraintEqualToAnchor:panel.bottomAnchor constant:-13.0],
+        [label.trailingAnchor constraintLessThanOrEqualToAnchor:control.leadingAnchor
+                                                       constant:-12.0],
+        [control.trailingAnchor constraintEqualToAnchor:panel.trailingAnchor constant:-14.0],
+        [control.centerYAnchor constraintEqualToAnchor:panel.centerYAnchor],
+        [panel.heightAnchor constraintGreaterThanOrEqualToConstant:56.0],
+    ]];
+    return panel;
+}
+
+@interface AksiSliderRow : UIView
+@property (nonatomic, strong) UISlider *slider;
+@property (nonatomic) NSInteger value;
+@property (nonatomic, copy) void (^onChange)(NSInteger value);
+- (instancetype)initWithTitle:(NSString *)title
+                      minimum:(NSInteger)minimum
+                      maximum:(NSInteger)maximum
+                       suffix:(NSString *)suffix;
+@end
+
+@implementation AksiSliderRow {
+    UILabel *_valueLabel;
+    NSString *_suffix;
+}
+
+- (instancetype)initWithTitle:(NSString *)title
+                      minimum:(NSInteger)minimum
+                      maximum:(NSInteger)maximum
+                       suffix:(NSString *)suffix {
+    self = [super initWithFrame:CGRectZero];
+    if (!self) {
+        return nil;
+    }
+    _suffix = [suffix copy];
+    self.translatesAutoresizingMaskIntoConstraints = NO;
+    AksiStylePanel(self);
+
+    UILabel *titleLabel = AksiMakeLabel(title,
+                                        [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold],
+                                        AksiTextColor());
+    _valueLabel = AksiMakeLabel(
+        @"", [UIFont monospacedDigitSystemFontOfSize:15 weight:UIFontWeightMedium],
+        AksiAccentColor());
+    _valueLabel.textAlignment = NSTextAlignmentRight;
+
+    _slider = [[UISlider alloc] init];
+    _slider.translatesAutoresizingMaskIntoConstraints = NO;
+    _slider.minimumValue = (float)minimum;
+    _slider.maximumValue = (float)maximum;
+    _slider.minimumTrackTintColor = AksiAccentColor();
+    _slider.maximumTrackTintColor = [UIColor colorWithWhite:1.0 alpha:0.16];
+    _slider.thumbTintColor = [UIColor whiteColor];
+    [_slider addTarget:self
+                  action:@selector(sliderMoved:)
+        forControlEvents:UIControlEventValueChanged];
+
+    [self addSubview:titleLabel];
+    [self addSubview:_valueLabel];
+    [self addSubview:_slider];
+    [NSLayoutConstraint activateConstraints:@[
+        [titleLabel.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:16.0],
+        [titleLabel.topAnchor constraintEqualToAnchor:self.topAnchor constant:12.0],
+        [titleLabel.trailingAnchor constraintLessThanOrEqualToAnchor:_valueLabel.leadingAnchor
+                                                            constant:-8.0],
+        [_valueLabel.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-16.0],
+        [_valueLabel.firstBaselineAnchor constraintEqualToAnchor:titleLabel.firstBaselineAnchor],
+        [_slider.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:12.0],
+        [_slider.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-12.0],
+        [_slider.topAnchor constraintEqualToAnchor:titleLabel.bottomAnchor constant:4.0],
+        [_slider.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:-8.0],
+    ]];
+    [self setValue:minimum];
+    return self;
+}
+
+- (void)setValue:(NSInteger)value {
+    _value = value;
+    self.slider.value = (float)value;
+    _valueLabel.text = [NSString stringWithFormat:@"%ld%@", (long)value, _suffix ?: @""];
+}
+
+- (void)sliderMoved:(UISlider *)sender {
+    NSInteger value = (NSInteger)lroundf(sender.value);
+    if (value == self.value) {
+        // Between two steps: leave the file alone, the thumb is already snapped.
+        sender.value = (float)self.value;
+        return;
+    }
+    [self setValue:value];
+    if (self.onChange) {
+        self.onChange(value);
+    }
+}
+
+@end
 
 @implementation AksiSettingsViewController {
     NSArray<UIButton *> *_swatches;
     UILabel *_memoryDetail;
+    AksiSliderRow *_distanceRow;
 }
 
 - (void)viewDidLoad {
@@ -1043,11 +910,84 @@ static void AksiRestyleTree(UIView *view) {
     [stack addArrangedSubview:_memoryDetail];
     [self updateMemoryDetail];
 
-    UILabel *note = AksiMakeLabel(
-        @"Пресет задаёт дальность прорисовки и симуляции, лимит FPS и частицы. Он применяется, "
-        @"когда мир открывается, и при следующем запуске.",
-        [UIFont systemFontOfSize:13], AksiDimColor());
     [stack setCustomSpacing:18.0 afterView:_memoryDetail];
+    [stack addArrangedSubview:AksiSectionLabel(@"ГРАФИКА")];
+
+    _distanceRow = [[AksiSliderRow alloc] initWithTitle:@"Дальность прорисовки"
+                                                minimum:2
+                                                maximum:32
+                                                 suffix:@" чанков"];
+    [_distanceRow setValue:AksiSettingNumber(@"distance",
+                                             AksiMemoryDistance(AksiMemoryPreset()), 2, 32)];
+    _distanceRow.onChange = ^(NSInteger value) {
+        AksiSetSettingNumber(@"distance", value);
+    };
+    [stack addArrangedSubview:_distanceRow];
+
+    UISegmentedControl *gui = [[UISegmentedControl alloc] initWithItems:@[ @"Авто", @"1", @"2", @"3" ]];
+    gui.translatesAutoresizingMaskIntoConstraints = NO;
+    gui.selectedSegmentIndex = MIN(AksiSettingNumber(@"gui", 0, 0, 4), 3);
+    gui.selectedSegmentTintColor = AksiAccentColor();
+    [gui setTitleTextAttributes:@{NSForegroundColorAttributeName : AksiTextColor()}
+                       forState:UIControlStateNormal];
+    [gui setTitleTextAttributes:@{NSForegroundColorAttributeName : [UIColor whiteColor]}
+                       forState:UIControlStateSelected];
+    [gui addTarget:self action:@selector(guiChanged:) forControlEvents:UIControlEventValueChanged];
+    [stack addArrangedSubview:AksiControlPanel(@"Масштаб интерфейса", gui)];
+
+    UISwitch *bobbing = [[UISwitch alloc] init];
+    bobbing.translatesAutoresizingMaskIntoConstraints = NO;
+    bobbing.onTintColor = AksiAccentColor();
+    bobbing.on = AksiSettingNumber(@"bobbing", 1, 0, 1) == 1;
+    [bobbing addTarget:self action:@selector(bobbingChanged:)
+        forControlEvents:UIControlEventValueChanged];
+    [stack addArrangedSubview:AksiControlPanel(@"Покачивание камеры", bobbing)];
+
+    [stack addArrangedSubview:AksiSectionLabel(@"УПРАВЛЕНИЕ")];
+    AksiSliderRow *fov = [[AksiSliderRow alloc] initWithTitle:@"Угол обзора"
+                                                      minimum:30
+                                                      maximum:110
+                                                       suffix:@"°"];
+    [fov setValue:AksiSettingNumber(@"fov", 70, 30, 110)];
+    fov.onChange = ^(NSInteger value) {
+        AksiSetSettingNumber(@"fov", value);
+    };
+    [stack addArrangedSubview:fov];
+
+    AksiSliderRow *sensitivity = [[AksiSliderRow alloc] initWithTitle:@"Чувствительность"
+                                                              minimum:1
+                                                              maximum:100
+                                                               suffix:@"%"];
+    [sensitivity setValue:AksiSettingNumber(@"sensitivity", 50, 1, 100)];
+    sensitivity.onChange = ^(NSInteger value) {
+        AksiSetSettingNumber(@"sensitivity", value);
+    };
+    [stack addArrangedSubview:sensitivity];
+
+    UISwitch *invertY = [[UISwitch alloc] init];
+    invertY.translatesAutoresizingMaskIntoConstraints = NO;
+    invertY.onTintColor = AksiAccentColor();
+    invertY.on = AksiSettingNumber(@"invert_y", 0, 0, 1) == 1;
+    [invertY addTarget:self action:@selector(invertYChanged:)
+        forControlEvents:UIControlEventValueChanged];
+    [stack addArrangedSubview:AksiControlPanel(@"Инвертировать мышь по Y", invertY)];
+
+    [stack addArrangedSubview:AksiSectionLabel(@"ЗВУК")];
+    AksiSliderRow *volume = [[AksiSliderRow alloc] initWithTitle:@"Громкость"
+                                                         minimum:0
+                                                         maximum:100
+                                                          suffix:@"%"];
+    [volume setValue:AksiSettingNumber(@"volume", 100, 0, 100)];
+    volume.onChange = ^(NSInteger value) {
+        AksiSetSettingNumber(@"volume", value);
+    };
+    [stack addArrangedSubview:volume];
+
+    UILabel *note = AksiMakeLabel(
+        @"Значения применяются, когда мир открывается, и при следующем запуске. Пресет памяти "
+        @"задаёт остальные лимиты: симуляцию, FPS и частицы.",
+        [UIFont systemFontOfSize:13], AksiDimColor());
+    [stack setCustomSpacing:18.0 afterView:volume];
     [stack addArrangedSubview:note];
 }
 
@@ -1083,13 +1023,81 @@ static void AksiRestyleTree(UIView *view) {
 }
 
 - (void)memoryChanged:(UISegmentedControl *)sender {
-    AksiSetMemoryPreset(sender.selectedSegmentIndex);
+    NSInteger preset = sender.selectedSegmentIndex;
+    AksiSetMemoryPreset(preset);
+    // Rust reads `memory` before the explicit `distance`, so the distance has to
+    // move with the preset or an old hand-picked value would win.
+    NSInteger distance = AksiMemoryDistance(preset);
+    AksiSetSettingNumber(@"distance", distance);
+    [_distanceRow setValue:distance];
     [self updateMemoryDetail];
+}
+
+- (void)guiChanged:(UISegmentedControl *)sender {
+    AksiSetSettingNumber(@"gui", sender.selectedSegmentIndex);
+}
+
+- (void)bobbingChanged:(UISwitch *)sender {
+    AksiSetSettingNumber(@"bobbing", sender.isOn ? 1 : 0);
+}
+
+- (void)invertYChanged:(UISwitch *)sender {
+    AksiSetSettingNumber(@"invert_y", sender.isOn ? 1 : 0);
 }
 
 @end
 
 #pragma mark - App delegate
+
+/// The launcher is portrait, the game inside winit is landscape. iOS asks the
+/// app delegate about every window, so the mask follows the window on top.
+@interface AksiNavigationController : UINavigationController
+@end
+
+@implementation AksiNavigationController
+
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+    return UIInterfaceOrientationMaskPortrait;
+}
+
+- (BOOL)shouldAutorotate {
+    return YES;
+}
+
+@end
+
+/// Ask the system to turn the screen now. The delegate's mask only says which
+/// orientations are allowed; on iOS 16 a scene geometry request is what
+/// actually rotates a window that is already visible (`attemptRotation...` is
+/// the older fallback and no longer enough).
+static void AksiRequestOrientation(UIInterfaceOrientationMask mask) {
+    UIWindow *window = nil;
+    for (UIWindow *candidate in [UIApplication sharedApplication].windows) {
+        if (candidate.isKeyWindow) {
+            window = candidate;
+            break;
+        }
+    }
+    if (!window) {
+        window = gLauncherWindow;
+    }
+    if (@available(iOS 16.0, *)) {
+        UIWindowScene *scene = window.windowScene;
+        if (scene) {
+            UIWindowSceneGeometryPreferencesIOS *preferences =
+                [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:mask];
+            [scene requestGeometryUpdateWithPreferences:preferences
+                                           errorHandler:^(NSError *error) {
+                                               AksiLog(@"orientation: %@",
+                                                       error.localizedDescription);
+                                           }];
+        }
+    }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    [UIViewController attemptRotationToDeviceOrientation];
+#pragma clang diagnostic pop
+}
 
 @implementation AksiAppDelegate
 
@@ -1102,8 +1110,8 @@ static void AksiRestyleTree(UIView *view) {
             AksiReadAccount() ? @"signed in" : @"none");
 
     AksiHomeViewController *home = [[AksiHomeViewController alloc] init];
-    UINavigationController *navigation =
-        [[UINavigationController alloc] initWithRootViewController:home];
+    AksiNavigationController *navigation =
+        [[AksiNavigationController alloc] initWithRootViewController:home];
     navigation.navigationBarHidden = YES;
 
     UIWindow *window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
@@ -1116,6 +1124,7 @@ static void AksiRestyleTree(UIView *view) {
 
     gLauncherWindow = window;
     gLauncherNavigation = navigation;
+    AksiRequestOrientation(UIInterfaceOrientationMaskPortrait);
     return YES;
 }
 
@@ -1127,7 +1136,13 @@ static void AksiRestyleTree(UIView *view) {
 - (UIInterfaceOrientationMask)application:(UIApplication *)application
     supportedInterfaceOrientationsForWindow:(UIWindow *)window {
     (void)application;
-    (void)window;
+    // Per window, so the two masks never fight: the launcher is portrait, and
+    // the engine's winit window is landscape (its view controller says the
+    // same). iOS asks the key window, and `AksiRequestOrientation` turns the
+    // scene to match it. Before Play there is only the launcher.
+    if (!gEngineStarted || gLauncherWindow == nil || window == gLauncherWindow) {
+        return UIInterfaceOrientationMaskPortrait;
+    }
     return UIInterfaceOrientationMaskLandscape;
 }
 
@@ -1197,9 +1212,12 @@ void AksiStartFromHome(NSString *launch) {
             if (code != 0) {
                 gLauncherWindow.hidden = NO;
                 [gLauncherWindow makeKeyAndVisible];
+                AksiRequestOrientation(UIInterfaceOrientationMaskPortrait);
                 AksiAlert(gLauncherNavigation.viewControllers.firstObject,
                           @"Игра не запустилась",
                           @"Подробности в Documents/Horizon/logs/latest.log.");
+            } else {
+                AksiRequestOrientation(UIInterfaceOrientationMaskLandscape);
             }
         });
         return;
@@ -1211,6 +1229,7 @@ void AksiStartFromHome(NSString *launch) {
     }
     gLauncherWindow.hidden = YES;
     gStarting = NO;
+    AksiRequestOrientation(UIInterfaceOrientationMaskLandscape);
     // The engine is already running: hand the choice to its loop, which wakes
     // the leaked `App` through the event-loop proxy.
     horizon_ios_launch_action();
@@ -1228,6 +1247,7 @@ void horizon_ios_present_launcher(void) {
         [home refresh];
         gLauncherWindow.hidden = NO;
         [gLauncherWindow makeKeyAndVisible];
+        AksiRequestOrientation(UIInterfaceOrientationMaskPortrait);
     };
     if ([NSThread isMainThread]) {
         present();
