@@ -2,12 +2,14 @@
 //!
 //! In menus a finger is the mouse (down = left click, moving drags). In the
 //! world the controls are drawn over the HUD (`draw_touch_controls`): a
-//! joystick, jump, sneak, sprint (a toggle), attack and
+//! joystick, jump, sneak (held), sprint (a toggle), attack and
 //! use (held; the same finger turns the view), pause, chat, keyboard, inventory,
 //! drop, F1/F2/F3/F5 and the layout editor (the gear). Hotbar slots select
 //! on tap. Anywhere else turns the view; a short tap there attacks the
 //! entity under the crosshair or else uses (right click), and a finger held
-//! still breaks (left click), as on Bedrock. Buttons go through the
+//! still breaks (left click), as on Bedrock. Buttons keep their finger to
+//! themselves: only a finger that starts in free space turns the camera, so
+//! holding jump and looking with another hand works. Buttons go through the
 //! controller bindings (the virtual pad `horizon-ctl pad` uses).
 //!
 //! The editor moves (drag), resizes and fades each control, hides or shows
@@ -54,6 +56,8 @@ enum Finger {
     },
     /// Holding a controller button; with pass-through on, moving it turns the view.
     Press(Button, [f64; 2]),
+    /// Holding sneak: down while the button is held, up when the finger lifts.
+    Sneak,
     /// Holding a trigger (0 = use, 1 = attack) from its button; moving the
     /// same finger turns the view like `Look`, and the trigger stays held
     /// until it lifts, wherever it slides.
@@ -127,10 +131,6 @@ pub(super) enum Preset {
     Custom,
 }
 
-fn yes() -> bool {
-    true
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(super) struct TouchLayout {
     /// Multiplies every control's opacity.
@@ -139,8 +139,9 @@ pub(super) struct TouchLayout {
     #[serde(default)]
     preset: Preset,
     /// A finger that went down on a button also turns the view when it moves.
-    /// Off: buttons keep their finger to themselves.
-    #[serde(default = "yes")]
+    /// Off by default: buttons keep their finger to themselves, so a player
+    /// holding jump or attack with one hand can still look with the other.
+    #[serde(default)]
     pass_through: bool,
 }
 
@@ -177,7 +178,7 @@ impl TouchLayout {
             (Id::F5, at(w - 14.0, 12.0, 9.0)),
             (Id::Edit, at(w - 36.0, 12.0, 8.0)),
         ]);
-        Self { opacity: 0.85, controls, preset: Preset::Bedrock, pass_through: true }
+        Self { opacity: 0.85, controls, preset: Preset::Bedrock, pass_through: false }
     }
 
     /// Laid out on a 560 x 270 GUI (a 20:9 phone at GUI scale 4).
@@ -204,7 +205,7 @@ impl TouchLayout {
             (Id::F5, at(69.0, 12.0, 8.0)),
             (Id::Edit, at(90.0, 12.0, 8.0)),
         ]);
-        Self { opacity: 0.85, controls, preset: Preset::Standard, pass_through: true }
+        Self { opacity: 0.85, controls, preset: Preset::Standard, pass_through: false }
     }
 
     fn of(preset: Preset) -> Self {
@@ -241,7 +242,10 @@ impl TouchLayout {
                     }
                     layout.preset = preset;
                     layout.opacity = saved.opacity.clamp(0.1, 1.0);
-                    layout.pass_through = saved.pass_through;
+                    // Older files turned this on for every preset; only the
+                    // player's own layout keeps an explicit choice, so a phone
+                    // player's buttons stop turning the camera.
+                    layout.pass_through = saved.pass_through && preset == Preset::Custom;
                     log::info!("Horizon: touch layout from {}: {preset:?}", path.display());
                 }
                 Err(e) => log::warn!("Horizon: {}: {e}", path.display()),
@@ -314,8 +318,6 @@ pub(super) struct Touches {
     knob: [f32; 2],
     /// Frames until tapped triggers are released (use, attack).
     trigger_release: [u8; 2],
-    /// Sneak toggled on (Bedrock's sneak button toggles).
-    sneaking: bool,
     /// Sprint toggled on; off again when the joystick is let go.
     sprinting: bool,
     layout: TouchLayout,
@@ -344,7 +346,6 @@ impl Default for Touches {
             fingers: HashMap::new(),
             knob: [0.0; 2],
             trigger_release: [0; 2],
-            sneaking: false,
             sprinting: false,
             layout: if cfg!(any(target_os = "android", target_os = "ios")) { TouchLayout::load() } else { TouchLayout::default() },
             editing: false,
@@ -618,13 +619,16 @@ impl Game<'_> {
 
     /// Every finger lifted at once (the app went to the background): nothing stays held.
     pub(super) fn touch_release_all(&mut self) {
+        let sneaking = self.touch.fingers.values().any(|f| matches!(f, Finger::Sneak));
         self.touch.fingers.clear();
         self.touch.knob = [0.0, 0.0];
         self.touch.trigger_release = [0; 2];
         self.touch.sprinting = false;
-        let sneaking = self.touch.sneaking;
         self.pad.injected = Default::default();
-        self.pad.injected.set(Button::RightStick, sneaking);
+        if sneaking {
+            // Sneak is a held key now: nothing may stay down behind the app.
+            let _ = self.mapped_key(winit::keyboard::KeyCode::ShiftLeft, false, false);
+        }
     }
 
     /// The controls over the HUD, while playing.
@@ -674,7 +678,7 @@ impl Game<'_> {
                 disc(batch, atlas, knob, r * 0.4, fade(rgba(255, 255, 255, if held { 190 } else { 130 }), a));
             } else {
                 let down = match id {
-                    Id::Sneak => t.sneaking,
+                    Id::Sneak => t.fingers.values().any(|f| matches!(f, Finger::Sneak)),
                     Id::Sprint => t.sprinting,
                     Id::Jump => self.pad.injected.held(Button::South),
                     Id::Attack => self.pad.injected.triggers[1] > 0.5,
@@ -883,9 +887,12 @@ impl Game<'_> {
             Id::Stick => Finger::Stick,
             Id::Jump => pad(self, Button::South),
             Id::Sneak => {
-                self.touch.sneaking = !self.touch.sneaking;
-                self.pad.injected.set(Button::RightStick, self.touch.sneaking);
-                Finger::Done
+                // Shift held, not toggled: the player crouches while the
+                // button is down, as holding the key does.
+                if let Err(e) = self.mapped_key(winit::keyboard::KeyCode::ShiftLeft, true, false) {
+                    log::warn!("Horizon: touch sneak: {e}");
+                }
+                Finger::Sneak
             }
             Id::Sprint => {
                 self.touch.sprinting = !self.touch.sprinting;
@@ -1059,6 +1066,13 @@ impl Game<'_> {
                     self.pad.injected.left = [0.0, 0.0];
                 }
                 Some(Finger::Press(button, _)) => self.pad.injected.set(button, false),
+                Some(Finger::Sneak) => {
+                    if let Err(e) =
+                        self.mapped_key(winit::keyboard::KeyCode::ShiftLeft, false, false)
+                    {
+                        log::warn!("Horizon: touch sneak: {e}");
+                    }
+                }
                 Some(Finger::Drag(..)) => {
                     // The editor dragged a control into place: write it now, so
                     // a back gesture or a kill from the app switcher keeps it.
