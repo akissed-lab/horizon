@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/akissed-lab/horizon/releases/latest"><img src="https://img.shields.io/github/v/release/akissed-lab/horizon?label=release" alt="Latest release"></a>
   <a href="https://github.com/akissed-lab/horizon/releases"><img src="https://img.shields.io/github/downloads/akissed-lab/horizon/total" alt="Downloads"></a>
-  <img src="https://img.shields.io/badge/version-0.6.0-8B5CF6" alt="Version 0.6.0">
+  <img src="https://img.shields.io/badge/version-0.7.0-8B5CF6" alt="Version 0.7.0">
   <img src="https://img.shields.io/badge/iOS-15%2B%20arm64-000000?logo=apple&logoColor=white" alt="iOS 15+">
   <img src="https://img.shields.io/badge/Minecraft-Java%2026.3-5D9C3F" alt="Minecraft Java 26.3">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/akissed-lab/horizon" alt="License"></a>
@@ -46,16 +46,18 @@ Horizon. Спасибо им. Порт для iOS и оформление Aksi �
 ### Возможности
 
 - Нативная игра на Rust, без Java и эмуляции; рендер через Metal.
-- Сенсорное управление: джойстик движения, обзор перетаскиванием, прыжок/присед, хотбар,
-  инвентарь, пауза и чат. В полях ввода открывается системная клавиатура iOS.
-- **Отдельный лаунчер Aksi до запуска движка**: «Продолжить», все миры, новый мир, сетевая
-  игра, настройки и аккаунт. Движок стартует только после нажатия «Играть»; когда мир закрывается,
-  лаунчер возвращается.
+- Сенсорное управление: джойстик движения, обзор перетаскиванием, прыжок, присед удержанием
+  кнопки, хотбар, инвентарь, пауза и чат. Кнопка держит свой палец: вторая рука может крутить
+  камеру, пока первая держит прыжок или удар. В полях ввода открывается системная клавиатура iOS.
+- **Отдельный лаунчер Aksi до запуска движка**: одна кнопка «Запустить игру», настройки и аккаунт.
+  Миры, новый мир и сетевая игра — на родном экране заголовка игры; когда мир закрывается, лаунчер
+  возвращается. Лаунчер портретный, игра — ландшафтная.
 - Вход **Ely.by** по нику и паролю: ник и скин подтягиваются с сервера, пароль нигде не
-  сохраняется.
-- Настройки в лаунчере: цвет акцента и пресеты памяти (Экономно / Обычно / Максимум), чтобы игра
-  стабильнее шла на телефоне. Те же настройки открываются кнопкой **Aksi** в меню паузы, а пресет
-  памяти применяется при входе в мир.
+  сохраняется. Без аккаунта можно выбрать свой скин PNG (64×64 или 64×32) из Файлов.
+- Настройки в лаунчере: цвет акцента, пресеты памяти (Экономно / Обычно / Максимум), дальность
+  прорисовки, масштаб интерфейса, покачивание камеры, угол обзора, чувствительность, инверсия Y и
+  громкость — игра стабильнее и удобнее на телефоне. Те же настройки открываются кнопкой **Aksi**
+  в меню паузы, а пресет памяти применяется при входе в мир.
 - Полноэкранный ландшафтный режим; системные свайпы с краёв не срабатывают случайно.
 - Миры, ресурспаки и шейдерпаки как на ПК; сохранения можно копировать через Finder или Files.
 
@@ -130,16 +132,19 @@ in [IOS.md](IOS.md).
 ### Features
 
 - A native Rust game, no Java or emulation; Metal rendering.
-- Touch controls: movement joystick, look by dragging, jump/sneak, hotbar, inventory, pause and chat.
-  Text fields open the iOS system keyboard.
-- A separate **Aksi launcher** before the engine starts: Continue, all worlds, a new world,
-  multiplayer, settings and the account. The engine starts only when Play is pressed, and the
-  launcher comes back when a world closes.
+- Touch controls: movement joystick, look by dragging, jump, sneak held while its button is down,
+  hotbar, inventory, pause and chat. A button keeps its finger, so one hand can hold jump or attack
+  while the other looks. Text fields open the iOS system keyboard.
+- A separate **Aksi launcher** before the engine starts: one Play button, settings and the account.
+  Worlds, a new world and multiplayer are the game's own title screen; the launcher comes back when
+  a world closes. The launcher is portrait and the game is landscape.
 - **Ely.by** sign-in with a nickname and password: the nickname and skin come from the server, and
-  the password is never stored.
-- Launcher settings: an accent colour and memory presets (Economy / Normal / Maximum) to keep the
-  game stable on a phone. The same settings open with the **Aksi** button in the pause menu, and the
-  memory preset is applied when a world opens.
+  the password is never stored. Without an account, a local 64×64 or 64×32 PNG skin can be picked
+  from the Files app.
+- Launcher settings: an accent colour, memory presets (Economy / Normal / Maximum), render distance,
+  GUI scale, view bobbing, field of view, sensitivity, invert-Y and volume to keep the game stable
+  and comfortable on a phone. The same settings open with the **Aksi** button in the pause menu, and
+  the memory preset is applied when a world opens.
 - Fullscreen landscape; a swipe from a screen edge no longer leaves the game by accident.
 - Worlds, resource packs and shader packs as on desktop; saves copy in and out through Finder or the
   Files app.
